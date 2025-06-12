@@ -1,0 +1,34 @@
+{
+  "expo": {
+    "name": "PolyGlotPal",
+    "slug": "polyglotpal",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "polyglotpal",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "icon": "./assets/images/icon.png",
+      "supportsTablet": true
+    },
+    "android": {
+      "icon": "./assets/images/adaptive-icon.png",
+      "package": "com.polyglotpal.app"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router"
+    ],
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "apiUrl": "http://192.168.1.102:3000/api"
+    }
+  }
+}
