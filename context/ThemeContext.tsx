@@ -1,6 +1,16 @@
-// context/ThemeContext.tsx
+// context/ThemeContext.tsx - Web Compatible Version
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
+
+// Platform-specific storage imports
+let AsyncStorage: any = null;
+if (Platform.OS !== 'web') {
+  try {
+    AsyncStorage = require('@react-native-async-storage/async-storage').default;
+  } catch (e) {
+    console.warn('AsyncStorage not available, using memory storage');
+  }
+}
 
 interface ThemeContextType {
   isDarkMode: boolean;
@@ -63,6 +73,44 @@ const darkColors = {
   shadow: '#000000'
 };
 
+// Web localStorage wrapper
+const webStorage = {
+  async getItem(key: string): Promise<string | null> {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        return window.localStorage.getItem(key);
+      } catch (e) {
+        console.warn('localStorage not accessible:', e);
+        return null;
+      }
+    }
+    return null;
+  },
+
+  async setItem(key: string, value: string): Promise<void> {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.setItem(key, value);
+      } catch (e) {
+        console.warn('localStorage not accessible:', e);
+      }
+    }
+  },
+
+  async removeItem(key: string): Promise<void> {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      try {
+        window.localStorage.removeItem(key);
+      } catch (e) {
+        console.warn('localStorage not accessible:', e);
+      }
+    }
+  }
+};
+
+// Storage adapter based on platform
+const storage = Platform.OS === 'web' ? webStorage : AsyncStorage;
+
 export const ThemeProvider = ({ children }: { children: ReactNode }) => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -74,10 +122,12 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
 
   const loadThemePreference = async () => {
     try {
-      const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
-      if (savedTheme !== null) {
-        setIsDarkMode(JSON.parse(savedTheme));
-        console.log('🎨 Loaded saved theme preference:', JSON.parse(savedTheme) ? 'dark' : 'light');
+      if (storage) {
+        const savedTheme = await storage.getItem(THEME_STORAGE_KEY);
+        if (savedTheme !== null) {
+          setIsDarkMode(JSON.parse(savedTheme));
+          console.log('🎨 Loaded saved theme preference:', JSON.parse(savedTheme) ? 'dark' : 'light');
+        }
       }
     } catch (error) {
       console.error('❌ Failed to load theme preference:', error);
@@ -91,8 +141,10 @@ export const ThemeProvider = ({ children }: { children: ReactNode }) => {
     setIsDarkMode(newMode);
 
     try {
-      await AsyncStorage.setItem(THEME_STORAGE_KEY, JSON.stringify(newMode));
-      console.log('💾 Theme preference saved:', newMode ? 'dark' : 'light');
+      if (storage) {
+        await storage.setItem(THEME_STORAGE_KEY, JSON.stringify(newMode));
+        console.log('💾 Theme preference saved:', newMode ? 'dark' : 'light');
+      }
     } catch (error) {
       console.error('❌ Failed to save theme preference:', error);
     }
