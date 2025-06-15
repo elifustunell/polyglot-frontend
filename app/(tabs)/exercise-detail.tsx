@@ -217,7 +217,7 @@ export default function ExerciseDetailScreen() {
     }
   };
 
-  const nextQuestion = () => {
+  const nextQuestion = async () => {
     if (!mounted) return;
 
     if (currentIndex < exercises.length - 1) {
@@ -239,71 +239,184 @@ export default function ExerciseDetailScreen() {
         percentage,
         totalScore: finalScore,
         isPassed,
-        passThreshold
+        passThreshold,
+        willCallAPI: isPassed
       });
 
-      // Show completion dialog with 60% rule
-      const alertTitle = isPassed ? '🎉 Level Completed!' : '📚 Try Again!';
-      const alertMessage = `You answered ${finalCorrectCount} out of ${exercises.length} questions correctly (${percentage}%)\n\nTotal XP: ${finalScore}\n\n${
-        isPassed
-          ? '🎊 Great! You passed with ' + percentage + '%! Next level unlocked!'
-          : '📝 You need at least ' + passThreshold + '% to pass. Keep practicing!'
-      }`;
+      // Show loading state
+      setLoading(true);
 
-      Alert.alert(
-        alertTitle,
-        alertMessage,
-        [
-          {
-            text: isPassed ? 'Continue to Exercises' : 'Return to Exercises',
-            onPress: async () => {
-              // Mark level as complete only if passed (60% or higher)
-              if (isPassed) {
-                try {
-                  await makeRequest(`/progress/${language}/${category}/${level}/complete`, {
-                    method: 'POST',
-                    body: JSON.stringify({
-                      percentage: percentage,
-                      correctAnswers: finalCorrectCount,
-                      totalQuestions: exercises.length
-                    })
+      try {
+        if (isPassed) {
+          console.log('🚀 Attempting to complete level with backend...');
+
+          // Call backend to complete level
+          const completeResponse = await makeRequest(`/progress/${language}/${category}/${level}/complete`, {
+            method: 'POST',
+            body: JSON.stringify({
+              percentage: percentage,
+              correctAnswers: finalCorrectCount,
+              totalQuestions: exercises.length
+            })
+          });
+
+          console.log('✅ Backend response:', completeResponse);
+
+          if (completeResponse.success) {
+            // SUCCESS: Level completed
+            Alert.alert(
+              '🎉 Level Completed!',
+              `Congratulations! You passed Level ${level} with ${percentage}%!\n\nScore: ${finalCorrectCount}/${exercises.length} correct\nTotal XP: ${finalScore}\n\n🎊 Next level unlocked!`,
+              [
+                {
+                  text: 'Continue to Exercises',
+                  onPress: () => {
+                    router.replace({
+                      pathname: '/(tabs)/exercises',
+                      params: {
+                        selectedCategory: category,
+                        refresh: Date.now().toString()
+                      }
+                    });
+                  }
+                }
+              ]
+            );
+          } else {
+            // Backend rejected completion
+            throw new Error(completeResponse.message || 'Level completion failed');
+          }
+        } else {
+          // FAILURE: Not enough score
+          console.log('❌ Level failed - not enough score');
+
+          Alert.alert(
+            '📚 Try Again!',
+            `You need at least ${passThreshold}% to pass this level.\n\nYour score: ${finalCorrectCount}/${exercises.length} correct (${percentage}%)\nTotal XP: ${finalScore}\n\n📝 Keep practicing to improve!`,
+            [
+              {
+                text: 'Return to Exercises',
+                onPress: () => {
+                  router.replace({
+                    pathname: '/(tabs)/exercises',
+                    params: {
+                      selectedCategory: category,
+                      refresh: Date.now().toString()
+                    }
                   });
-                  console.log('✅ Level completion confirmed');
-                } catch (error) {
-                  console.log('⚠️ Level completion error:', error.message);
+                }
+              },
+              {
+                text: 'Try Again',
+                onPress: () => {
+                  // Reset to retry the level
+                  setCurrentIndex(0);
+                  setSelectedAnswer(null);
+                  setShowResult(false);
+                  setResult(null);
+                  setCorrectCount(0);
+                  // Don't reset total score - it's cumulative
                 }
               }
+            ]
+          );
+        }
+      } catch (error) {
+        console.error('❌ Level completion error:', error);
 
-              // Navigate back to exercises page with proper parameters
-              console.log('🚀 Navigating back to exercises with params:', {
-                selectedCategory: category,
-                refresh: Date.now().toString()
-              });
-
-              // Use replace to ensure navigation works
-              router.replace({
-                pathname: '/(tabs)/exercises',
-                params: {
-                  selectedCategory: category,
-                  refresh: Date.now().toString()
+        // Handle backend rejection (60% rule)
+        if (error.message.includes('need at least')) {
+          Alert.alert(
+            '📚 Level Not Passed',
+            `${error.message}\n\nYour score: ${finalCorrectCount}/${exercises.length} correct (${percentage}%)\n\nTry again to improve your score!`,
+            [
+              {
+                text: 'Return to Exercises',
+                onPress: () => {
+                  router.replace({
+                    pathname: '/(tabs)/exercises',
+                    params: {
+                      selectedCategory: category,
+                      refresh: Date.now().toString()
+                    }
+                  });
                 }
-              });
-            }
-          },
-          {
-            text: 'Try Again',
-            onPress: () => {
-              // Reset to retry the level
-              setCurrentIndex(0);
-              setSelectedAnswer(null);
-              setShowResult(false);
-              setResult(null);
-              setCorrectCount(0);
-              // Don't reset total score - it's cumulative
-            }
-          }
-        ]
-      );
+              },
+              {
+                text: 'Try Again',
+                onPress: () => {
+                  setCurrentIndex(0);
+                  setSelectedAnswer(null);
+                  setShowResult(false);
+                  setResult(null);
+                  setCorrectCount(0);
+                }
+              }
+            ]
+          );
+        } else {
+          // Network or other error
+          Alert.alert(
+            '⚠️ Connection Error',
+            `Could not save your progress: ${error.message}\n\nYour score: ${finalCorrectCount}/${exercises.length} correct (${percentage}%)\n\nPlease check your internet connection.`,
+            [
+              {
+                text: 'Return to Exercises',
+                onPress: () => {
+                  router.replace({
+                    pathname: '/(tabs)/exercises',
+                    params: {
+                      selectedCategory: category,
+                      refresh: Date.now().toString()
+                    }
+                  });
+                }
+              },
+              {
+                text: 'Try Again',
+                onPress: async () => {
+                  // Retry the completion call
+                  try {
+                    if (isPassed) {
+                      await makeRequest(`/progress/${language}/${category}/${level}/complete`, {
+                        method: 'POST',
+                        body: JSON.stringify({
+                          percentage: percentage,
+                          correctAnswers: finalCorrectCount,
+                          totalQuestions: exercises.length
+                        })
+                      });
+
+                      Alert.alert(
+                        '✅ Success!',
+                        'Your progress has been saved successfully!',
+                        [
+                          {
+                            text: 'Continue',
+                            onPress: () => {
+                              router.replace({
+                                pathname: '/(tabs)/exercises',
+                                params: {
+                                  selectedCategory: category,
+                                  refresh: Date.now().toString()
+                                }
+                              });
+                            }
+                          }
+                        ]
+                      );
+                    }
+                  } catch (retryError) {
+                    Alert.alert('Error', 'Still unable to save progress. Please try again later.');
+                  }
+                }
+              }
+            ]
+          );
+        }
+      } finally {
+        setLoading(false);
+      }
     }
   };
 
