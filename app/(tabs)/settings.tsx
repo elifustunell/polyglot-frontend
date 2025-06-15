@@ -1,31 +1,31 @@
-// app/(tabs)/settings.tsx - Real-time name updates ile düzeltilmiş
+// app/(tabs)/settings.tsx - Functional Dark Mode with ThemeContext
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Switch, ScrollView, ActivityIndicator, Animated } from 'react-native';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
-import { Colors, GlobalStyles } from '@/constants/Theme';
-import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
+import { useTheme } from '@/context/ThemeContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useFocusEffect } from 'expo-router';
 
-// Toast Component
+// Toast Component with Dark Mode Support
 const Toast = ({ message, type = 'info', visible, onHide }: {
   message: string;
   type: 'success' | 'error' | 'warning' | 'info';
   visible: boolean;
   onHide: () => void;
 }) => {
+  const { colors } = useTheme();
   const translateY = new Animated.Value(-100);
   const opacity = new Animated.Value(0);
 
   const getToastColor = () => {
     switch (type) {
-      case 'success': return '#4caf50';
-      case 'error': return '#f44336';
-      case 'warning': return '#ff9800';
-      default: return '#2196f3';
+      case 'success': return colors.success;
+      case 'error': return colors.error;
+      case 'warning': return colors.warning;
+      default: return colors.info;
     }
   };
 
@@ -81,12 +81,12 @@ const Toast = ({ message, type = 'info', visible, onHide }: {
         top: 50,
         left: 20,
         right: 20,
-        backgroundColor: '#fff',
+        backgroundColor: colors.card,
         borderRadius: 12,
         padding: 16,
         flexDirection: 'row',
         alignItems: 'center',
-        shadowColor: '#000',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 12,
@@ -117,7 +117,7 @@ const Toast = ({ message, type = 'info', visible, onHide }: {
       <Text style={{
         flex: 1,
         fontSize: 16,
-        color: '#333',
+        color: colors.text,
         fontWeight: '500',
         lineHeight: 22,
       }}>
@@ -131,19 +131,20 @@ const Toast = ({ message, type = 'info', visible, onHide }: {
           marginLeft: 8,
         }}
       >
-        <Ionicons name="close" size={18} color="#666" />
+        <Ionicons name="close" size={18} color={colors.textSecondary} />
       </TouchableOpacity>
     </Animated.View>
   );
 };
 
-// Logout Confirmation Modal Component
+// Logout Confirmation Modal Component with Dark Mode
 const LogoutModal = ({ visible, onConfirm, onCancel, loading }: {
   visible: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   loading: boolean;
 }) => {
+  const { colors } = useTheme();
   const opacity = new Animated.Value(0);
 
   React.useEffect(() => {
@@ -174,12 +175,12 @@ const LogoutModal = ({ visible, onConfirm, onCancel, loading }: {
       }}
     >
       <View style={{
-        backgroundColor: '#fff',
+        backgroundColor: colors.card,
         borderRadius: 16,
         padding: 24,
         margin: 20,
         minWidth: 280,
-        shadowColor: '#000',
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 8 },
         shadowOpacity: 0.25,
         shadowRadius: 16,
@@ -190,18 +191,18 @@ const LogoutModal = ({ visible, onConfirm, onCancel, loading }: {
             width: 60,
             height: 60,
             borderRadius: 30,
-            backgroundColor: '#fff3e0',
+            backgroundColor: colors.warning + '20',
             justifyContent: 'center',
             alignItems: 'center',
             marginBottom: 16,
           }}>
-            <Ionicons name="log-out-outline" size={28} color="#ff9800" />
+            <Ionicons name="log-out-outline" size={28} color={colors.warning} />
           </View>
 
           <Text style={{
             fontSize: 20,
             fontWeight: '600',
-            color: '#333',
+            color: colors.text,
             marginBottom: 8,
             textAlign: 'center',
           }}>
@@ -210,7 +211,7 @@ const LogoutModal = ({ visible, onConfirm, onCancel, loading }: {
 
           <Text style={{
             fontSize: 16,
-            color: '#666',
+            color: colors.textSecondary,
             textAlign: 'center',
             lineHeight: 22,
           }}>
@@ -225,10 +226,12 @@ const LogoutModal = ({ visible, onConfirm, onCancel, loading }: {
           <TouchableOpacity
             style={{
               flex: 1,
-              backgroundColor: '#f5f5f5',
+              backgroundColor: colors.surface,
               padding: 14,
               borderRadius: 12,
               alignItems: 'center',
+              borderWidth: 1,
+              borderColor: colors.border,
             }}
             onPress={onCancel}
             disabled={loading}
@@ -236,7 +239,7 @@ const LogoutModal = ({ visible, onConfirm, onCancel, loading }: {
             <Text style={{
               fontSize: 16,
               fontWeight: '600',
-              color: '#666',
+              color: colors.textSecondary,
             }}>
               Cancel
             </Text>
@@ -245,7 +248,7 @@ const LogoutModal = ({ visible, onConfirm, onCancel, loading }: {
           <TouchableOpacity
             style={{
               flex: 1,
-              backgroundColor: loading ? '#ffccbc' : '#ff5722',
+              backgroundColor: loading ? colors.error + '80' : colors.error,
               padding: 14,
               borderRadius: 12,
               alignItems: 'center',
@@ -277,10 +280,10 @@ const LogoutModal = ({ visible, onConfirm, onCancel, loading }: {
 export default function SettingsScreen() {
   const { sourceLang, targetLang } = useLanguage();
   const { logout, user, loading } = useAuth();
+  const { colors, isDarkMode, toggleDarkMode } = useTheme();
   const router = useRouter();
   const layout = useResponsiveLayout();
   const [pushNotifications, setPushNotifications] = useState(true);
-  const [darkMode, setDarkMode] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
@@ -351,13 +354,13 @@ export default function SettingsScreen() {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#f5f5f5'
+        backgroundColor: colors.background
       }}>
-        <ActivityIndicator size="large" color={Colors.primary} />
+        <ActivityIndicator size="large" color={colors.primary} />
         <Text style={{
           marginTop: 16,
           fontSize: 16,
-          color: '#666'
+          color: colors.textSecondary
         }}>
           Loading...
         </Text>
@@ -411,21 +414,43 @@ export default function SettingsScreen() {
     );
   };
 
-  const handleDarkModeToggle = (value: boolean) => {
-    setDarkMode(value);
+  const handleDarkModeToggle = async () => {
+    const newMode = !isDarkMode;
+    toggleDarkMode();
     showToast(
-      value ? 'Dark mode enabled' : 'Dark mode disabled',
-      'info'
+      newMode ? 'Dark mode enabled! 🌙' : 'Light mode enabled! ☀️',
+      'success'
     );
   };
 
-  const containerStyle = layout.isWeb ?
-    ResponsiveStyles.webContainer :
-    GlobalStyles.container;
+  const containerStyle = layout.isWeb ? {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  } : {
+    flex: 1,
+    backgroundColor: colors.background
+  };
 
-  const cardStyle = layout.isWeb ?
-    { ...ResponsiveStyles.webCard, minHeight: '90vh' } :
-    GlobalStyles.whiteBackgroundContainer;
+  const cardStyle = layout.isWeb ? {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 40,
+    width: '100%',
+    maxWidth: 800,
+    minHeight: '90vh',
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6
+  } : {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: 0
+  };
 
   return (
     <View style={containerStyle}>
@@ -453,23 +478,33 @@ export default function SettingsScreen() {
       >
         <View style={cardStyle}>
           {/* Header */}
-          <View style={[
-            GlobalStyles.headerContainer,
-            layout.isWeb && { paddingHorizontal: 0, marginBottom: 30 }
-          ]}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: layout.isWeb ? 0 : 20,
+            paddingVertical: 16,
+            marginBottom: layout.isWeb ? 30 : 20
+          }}>
             <TouchableOpacity
-              style={GlobalStyles.backButton}
+              style={{
+                padding: 8,
+                borderRadius: 8,
+                backgroundColor: colors.surface
+              }}
               onPress={() => router.push('/(tabs)/mainscreen')}
             >
-              <Ionicons name="arrow-back" size={24} color="#000" />
+              <Ionicons name="arrow-back" size={24} color={colors.text} />
             </TouchableOpacity>
-            <Text style={[
-              GlobalStyles.headerText,
-              layout.isWeb && ResponsiveStyles.webTitle
-            ]}>
+            <Text style={{
+              flex: 1,
+              textAlign: 'center',
+              fontSize: layout.fontSize?.xlarge || 24,
+              fontWeight: 'bold',
+              color: colors.text
+            }}>
               Settings
             </Text>
-            <View style={{ width: 24 }} />
+            <View style={{ width: 40 }} />
           </View>
 
           <View style={{
@@ -477,42 +512,44 @@ export default function SettingsScreen() {
           }}>
             {/* User Info Section with Real-time Name */}
             <View style={{
-              backgroundColor: '#f8f9fa',
+              backgroundColor: colors.surface,
               borderRadius: 16,
               padding: 20,
               marginBottom: 24,
               flexDirection: 'row',
-              alignItems: 'center'
+              alignItems: 'center',
+              borderWidth: 1,
+              borderColor: colors.border
             }}>
               <View style={{
                 width: 60,
                 height: 60,
                 borderRadius: 30,
-                backgroundColor: Colors.primary + '20',
+                backgroundColor: colors.primary + '20',
                 justifyContent: 'center',
                 alignItems: 'center',
                 marginRight: 16
               }}>
-                <Ionicons name="person" size={30} color={Colors.primary} />
+                <Ionicons name="person" size={30} color={colors.primary} />
               </View>
 
               <View style={{ flex: 1 }}>
                 <Text style={{
                   fontSize: 18,
                   fontWeight: '600',
-                  color: Colors.text,
+                  color: colors.text,
                   marginBottom: 4
                 }}>
                   {userName}
                 </Text>
                 <Text style={{
                   fontSize: 14,
-                  color: '#666'
+                  color: colors.textSecondary
                 }}>
                   {user?.email}
                 </Text>
                 <View style={{
-                  backgroundColor: '#28a745',
+                  backgroundColor: colors.success,
                   paddingHorizontal: 8,
                   paddingVertical: 2,
                   borderRadius: 4,
@@ -530,10 +567,10 @@ export default function SettingsScreen() {
                 style={{
                   padding: 8,
                   borderRadius: 8,
-                  backgroundColor: '#fff'
+                  backgroundColor: colors.background
                 }}
               >
-                <Ionicons name="create-outline" size={20} color={Colors.primary} />
+                <Ionicons name="create-outline" size={20} color={colors.primary} />
               </TouchableOpacity>
             </View>
 
@@ -543,7 +580,7 @@ export default function SettingsScreen() {
                 fontSize: 18,
                 fontWeight: '600',
                 marginBottom: 16,
-                color: Colors.text
+                color: colors.text
               }}>
                 Learning
               </Text>
@@ -552,12 +589,12 @@ export default function SettingsScreen() {
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: '#fff',
+                  backgroundColor: colors.surface,
                   padding: 16,
                   borderRadius: 12,
                   marginBottom: 12,
                   borderWidth: 1,
-                  borderColor: '#f0f0f0'
+                  borderColor: colors.border
                 }}
                 onPress={() => router.push('/language-selection')}
               >
@@ -565,41 +602,41 @@ export default function SettingsScreen() {
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: '#e3f2fd',
+                  backgroundColor: colors.info + '20',
                   justifyContent: 'center',
                   alignItems: 'center',
                   marginRight: 12
                 }}>
-                  <Ionicons name="language-outline" size={20} color="#1976d2" />
+                  <Ionicons name="language-outline" size={20} color={colors.info} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{
                     fontSize: 16,
                     fontWeight: '500',
-                    color: Colors.text
+                    color: colors.text
                   }}>
                     Change Language
                   </Text>
                   <Text style={{
                     fontSize: 14,
-                    color: '#666',
+                    color: colors.textSecondary,
                     marginTop: 2
                   }}>
                     {sourceLang} → {targetLang}
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={{
                   flexDirection: 'row',
                   alignItems: 'center',
-                  backgroundColor: '#fff',
+                  backgroundColor: colors.surface,
                   padding: 16,
                   borderRadius: 12,
                   borderWidth: 1,
-                  borderColor: '#f0f0f0'
+                  borderColor: colors.border
                 }}
                 onPress={() => router.push('/(tabs)/profile')}
               >
@@ -607,30 +644,30 @@ export default function SettingsScreen() {
                   width: 40,
                   height: 40,
                   borderRadius: 20,
-                  backgroundColor: '#fff3e0',
+                  backgroundColor: colors.warning + '20',
                   justifyContent: 'center',
                   alignItems: 'center',
                   marginRight: 12
                 }}>
-                  <Ionicons name="stats-chart-outline" size={20} color="#f57c00" />
+                  <Ionicons name="stats-chart-outline" size={20} color={colors.warning} />
                 </View>
                 <View style={{ flex: 1 }}>
                   <Text style={{
                     fontSize: 16,
                     fontWeight: '500',
-                    color: Colors.text
+                    color: colors.text
                   }}>
                     View Progress
                   </Text>
                   <Text style={{
                     fontSize: 14,
-                    color: '#666',
+                    color: colors.textSecondary,
                     marginTop: 2
                   }}>
                     Track your learning journey
                   </Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
 
@@ -640,16 +677,16 @@ export default function SettingsScreen() {
                 fontSize: 18,
                 fontWeight: '600',
                 marginBottom: 16,
-                color: Colors.text
+                color: colors.text
               }}>
                 Preferences
               </Text>
 
               <View style={{
-                backgroundColor: '#fff',
+                backgroundColor: colors.surface,
                 borderRadius: 12,
                 borderWidth: 1,
-                borderColor: '#f0f0f0',
+                borderColor: colors.border,
                 overflow: 'hidden'
               }}>
                 <View style={{
@@ -657,32 +694,32 @@ export default function SettingsScreen() {
                   alignItems: 'center',
                   padding: 16,
                   borderBottomWidth: 1,
-                  borderBottomColor: '#f0f0f0'
+                  borderBottomColor: colors.border
                 }}>
                   <View style={{
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: '#e8f5e8',
+                    backgroundColor: colors.success + '20',
                     justifyContent: 'center',
                     alignItems: 'center',
                     marginRight: 12
                   }}>
-                    <Ionicons name="notifications-outline" size={20} color="#4caf50" />
+                    <Ionicons name="notifications-outline" size={20} color={colors.success} />
                   </View>
                   <Text style={{
                     flex: 1,
                     fontSize: 16,
                     fontWeight: '500',
-                    color: Colors.text
+                    color: colors.text
                   }}>
                     Push Notifications
                   </Text>
                   <Switch
                     value={pushNotifications}
                     onValueChange={handleNotificationToggle}
-                    trackColor={{ false: '#767577', true: Colors.primary + '40' }}
-                    thumbColor={pushNotifications ? Colors.primary : '#f4f3f4'}
+                    trackColor={{ false: colors.border, true: colors.primary + '40' }}
+                    thumbColor={pushNotifications ? colors.primary : colors.textSecondary}
                   />
                 </View>
 
@@ -695,26 +732,38 @@ export default function SettingsScreen() {
                     width: 40,
                     height: 40,
                     borderRadius: 20,
-                    backgroundColor: '#e3f2fd',
+                    backgroundColor: (isDarkMode ? '#FFD700' : colors.info) + '20',
                     justifyContent: 'center',
                     alignItems: 'center',
                     marginRight: 12
                   }}>
-                    <Ionicons name="moon-outline" size={20} color="#1976d2" />
+                    <Ionicons
+                      name={isDarkMode ? "moon" : "sunny-outline"}
+                      size={20}
+                      color={isDarkMode ? '#FFD700' : colors.info}
+                    />
                   </View>
-                  <Text style={{
-                    flex: 1,
-                    fontSize: 16,
-                    fontWeight: '500',
-                    color: Colors.text
-                  }}>
-                    Dark Mode
-                  </Text>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '500',
+                      color: colors.text
+                    }}>
+                      Dark Mode
+                    </Text>
+                    <Text style={{
+                      fontSize: 12,
+                      color: colors.textSecondary,
+                      marginTop: 2
+                    }}>
+                      {isDarkMode ? 'Currently using dark theme' : 'Currently using light theme'}
+                    </Text>
+                  </View>
                   <Switch
-                    value={darkMode}
+                    value={isDarkMode}
                     onValueChange={handleDarkModeToggle}
-                    trackColor={{ false: '#767577', true: Colors.primary + '40' }}
-                    thumbColor={darkMode ? Colors.primary : '#f4f3f4'}
+                    trackColor={{ false: colors.border, true: colors.primary + '40' }}
+                    thumbColor={isDarkMode ? colors.primary : colors.textSecondary}
                   />
                 </View>
               </View>
@@ -726,23 +775,23 @@ export default function SettingsScreen() {
                 fontSize: 18,
                 fontWeight: '600',
                 marginBottom: 16,
-                color: Colors.text
+                color: colors.text
               }}>
                 Support & About
               </Text>
 
               <View style={{
-                backgroundColor: '#fff',
+                backgroundColor: colors.surface,
                 borderRadius: 12,
                 borderWidth: 1,
-                borderColor: '#f0f0f0',
+                borderColor: colors.border,
                 overflow: 'hidden'
               }}>
                 {[
-                  { icon: 'help-circle-outline', title: 'Help & Support', color: '#ff9800' },
-                  { icon: 'shield-outline', title: 'Privacy Policy', color: '#4caf50' },
-                  { icon: 'document-text-outline', title: 'Terms of Service', color: '#2196f3' },
-                  { icon: 'information-circle-outline', title: 'About PolyGlotPal', color: '#9c27b0' }
+                  { icon: 'help-circle-outline', title: 'Help & Support', color: colors.warning },
+                  { icon: 'shield-outline', title: 'Privacy Policy', color: colors.success },
+                  { icon: 'document-text-outline', title: 'Terms of Service', color: colors.info },
+                  { icon: 'information-circle-outline', title: 'About PolyGlotPal', color: colors.primary }
                 ].map((item, index, array) => (
                   <TouchableOpacity
                     key={index}
@@ -751,7 +800,7 @@ export default function SettingsScreen() {
                       alignItems: 'center',
                       padding: 16,
                       borderBottomWidth: index < array.length - 1 ? 1 : 0,
-                      borderBottomColor: '#f0f0f0'
+                      borderBottomColor: colors.border
                     }}
                     onPress={() => showToast(`Opening ${item.title}...`, 'info')}
                   >
@@ -770,11 +819,11 @@ export default function SettingsScreen() {
                       flex: 1,
                       fontSize: 16,
                       fontWeight: '500',
-                      color: Colors.text
+                      color: colors.text
                     }}>
                       {item.title}
                     </Text>
-                    <Ionicons name="chevron-forward" size={20} color="#ccc" />
+                    <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -784,20 +833,20 @@ export default function SettingsScreen() {
             <TouchableOpacity
               style={{
                 flexDirection: 'row',
-                backgroundColor: '#fff',
+                backgroundColor: colors.surface,
                 padding: 16,
                 borderRadius: 12,
                 alignItems: 'center',
                 justifyContent: 'center',
                 marginBottom: 20,
                 borderWidth: 2,
-                borderColor: '#ff3b30'
+                borderColor: colors.error
               }}
               onPress={handleLogoutPress}
             >
-              <Ionicons name="log-out-outline" size={20} color="#ff3b30" />
+              <Ionicons name="log-out-outline" size={20} color={colors.error} />
               <Text style={{
-                color: '#ff3b30',
+                color: colors.error,
                 fontSize: 16,
                 fontWeight: '600',
                 marginLeft: 8
@@ -808,18 +857,18 @@ export default function SettingsScreen() {
 
             {/* App Info */}
             <View style={{
-              backgroundColor: '#f0f8ff',
+              backgroundColor: colors.info + '20',
               borderRadius: 12,
               padding: 16,
               borderLeftWidth: 4,
-              borderLeftColor: '#2196f3'
+              borderLeftColor: colors.info
             }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                <Ionicons name="information-circle-outline" size={20} color="#1976d2" />
+                <Ionicons name="information-circle-outline" size={20} color={colors.info} />
                 <Text style={{
                   fontSize: 16,
                   fontWeight: '600',
-                  color: '#1565c0',
+                  color: colors.info,
                   marginLeft: 8
                 }}>
                   PolyGlotPal v1.0.0
@@ -827,7 +876,7 @@ export default function SettingsScreen() {
               </View>
               <Text style={{
                 fontSize: 14,
-                color: '#1565c0',
+                color: colors.info,
                 lineHeight: 20
               }}>
                 Your personalized language learning companion. Keep practicing and achieve fluency faster!

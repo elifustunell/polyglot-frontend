@@ -1,9 +1,8 @@
-// app/(tabs)/mainscreen.tsx - Real-time name updates ile güncellenmiş
+// app/(tabs)/mainscreen.tsx - Updated with Dark Mode Support
 
-import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
-import { Colors, GlobalStyles } from '@/constants/Theme';
 import { useAuth } from '@/context/AuthContext';
 import { useLanguage } from '@/context/LanguageContext';
+import { useTheme } from '@/context/ThemeContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { getFlagImage } from '@/utils/helpers';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -31,6 +30,7 @@ export default function MainScreen() {
   const router = useRouter();
   const layout = useResponsiveLayout();
   const { sourceLang, targetLang } = useLanguage();
+  const { colors } = useTheme();
   const [isMounted, setIsMounted] = useState(false);
   const [progressStats, setProgressStats] = useState<ProgressStats | null>(null);
   const [todayActivity, setTodayActivity] = useState<TodayActivity | null>(null);
@@ -230,13 +230,34 @@ export default function MainScreen() {
     return null;
   }
 
-  const containerStyle = layout.isWeb ?
-    ResponsiveStyles.webContainer :
-    GlobalStyles.container;
+  const containerStyle = layout.isWeb ? {
+    flex: 1,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20
+  } : {
+    flex: 1,
+    backgroundColor: colors.background
+  };
 
-  const cardStyle = layout.isWeb ?
-    { ...ResponsiveStyles.webCard, minHeight: '80vh' } :
-    GlobalStyles.whiteBackgroundContainer;
+  const cardStyle = layout.isWeb ? {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 40,
+    width: '100%',
+    maxWidth: 800,
+    minHeight: '80vh',
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6
+  } : {
+    flex: 1,
+    backgroundColor: colors.card,
+    borderRadius: 0
+  };
 
   const learningActivities = [
     {
@@ -297,39 +318,51 @@ export default function MainScreen() {
       >
         <View style={cardStyle}>
           {/* Header with Dynamic User Name */}
-          <View style={[
-            GlobalStyles.headerContainer,
-            layout.isWeb && { paddingHorizontal: 0, marginBottom: 30 }
-          ]}>
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            paddingHorizontal: layout.isWeb ? 0 : 20,
+            paddingVertical: 16,
+            marginBottom: layout.isWeb ? 30 : 20
+          }}>
             <View style={{ width: 24 }} />
-            <Text style={[
-              GlobalStyles.headerText,
-              layout.isWeb && ResponsiveStyles.webTitle
-            ]}>
+            <Text style={{
+              flex: 1,
+              textAlign: 'center',
+              fontSize: layout.fontSize?.xlarge || 24,
+              fontWeight: 'bold',
+              color: colors.text
+            }}>
               Learn {targetLang?.toUpperCase()}
             </Text>
             <TouchableOpacity
-              style={GlobalStyles.settingsButton}
+              style={{
+                padding: 8,
+                borderRadius: 8,
+                backgroundColor: colors.surface
+              }}
               onPress={() => router.push('/(tabs)/settings')}
             >
-              <Ionicons name="settings-outline" size={24} color="#666" />
+              <Ionicons name="settings-outline" size={24} color={colors.textSecondary} />
             </TouchableOpacity>
           </View>
 
           {/* Welcome Message with Real-time Name */}
           <View style={{
-            backgroundColor: '#e8f5e8',
+            backgroundColor: colors.success + '20',
             borderRadius: 16,
             padding: 20,
             marginBottom: 30,
             marginHorizontal: layout.isWeb ? 0 : 20,
-            alignItems: 'center'
+            alignItems: 'center',
+            borderWidth: 1,
+            borderColor: colors.success + '40'
           }}>
-            <Ionicons name="person-circle-outline" size={48} color="#4caf50" style={{ marginBottom: 12 }} />
+            <Ionicons name="person-circle-outline" size={48} color={colors.success} style={{ marginBottom: 12 }} />
             <Text style={{
               fontSize: 22,
               fontWeight: '600',
-              color: '#2e7d32',
+              color: colors.success,
               textAlign: 'center',
               marginBottom: 8
             }}>
@@ -337,7 +370,7 @@ export default function MainScreen() {
             </Text>
             <Text style={{
               fontSize: 14,
-              color: '#388e3c',
+              color: colors.success,
               textAlign: 'center',
               lineHeight: 20
             }}>
@@ -353,28 +386,30 @@ export default function MainScreen() {
             marginBottom: 30,
             paddingHorizontal: 20,
             paddingVertical: 16,
-            backgroundColor: '#f8f9fa',
+            backgroundColor: colors.surface,
             borderRadius: 12,
-            marginHorizontal: layout.isWeb ? 0 : 20
+            marginHorizontal: layout.isWeb ? 0 : 20,
+            borderWidth: 1,
+            borderColor: colors.border
           }}>
             <View style={{ alignItems: 'center' }}>
               <Image
                 source={getFlagImage(sourceLang) || require('@/assets/images/flags/tr.png')}
                 style={{ width: 40, height: 40, borderRadius: 20, marginBottom: 8 }}
               />
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#666' }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary }}>
                 {sourceLang?.toUpperCase()}
               </Text>
             </View>
 
-            <Ionicons name="arrow-forward" size={24} color="#666" style={{ marginHorizontal: 20 }} />
+            <Ionicons name="arrow-forward" size={24} color={colors.textSecondary} style={{ marginHorizontal: 20 }} />
 
             <View style={{ alignItems: 'center' }}>
               <Image
                 source={getFlagImage(targetLang) || require('@/assets/images/flags/eng.png')}
                 style={{ width: 40, height: 40, borderRadius: 20, marginBottom: 8 }}
               />
-              <Text style={{ fontSize: 14, fontWeight: '600', color: '#666' }}>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: colors.textSecondary }}>
                 {targetLang?.toUpperCase()}
               </Text>
             </View>
@@ -383,28 +418,30 @@ export default function MainScreen() {
               onPress={() => router.push('/language-selection')}
               style={{ marginLeft: 20 }}
             >
-              <Ionicons name="swap-horizontal" size={24} color="#007AFF" />
+              <Ionicons name="swap-horizontal" size={24} color={colors.primary} />
             </TouchableOpacity>
           </View>
 
           {/* Progress Section - Real Data */}
           <View style={{
-            backgroundColor: '#e3f2fd',
+            backgroundColor: colors.info + '20',
             padding: 20,
             borderRadius: 12,
             marginHorizontal: layout.isWeb ? 0 : 20,
-            marginBottom: 30
+            marginBottom: 30,
+            borderWidth: 1,
+            borderColor: colors.info + '40'
           }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
-              <Text style={{ fontSize: 18, fontWeight: '600', color: '#1976d2' }}>
+              <Text style={{ fontSize: 18, fontWeight: '600', color: colors.info }}>
                 Today's Progress
               </Text>
               {progressLoading && (
-                <ActivityIndicator size="small" color="#1976d2" />
+                <ActivityIndicator size="small" color={colors.info} />
               )}
             </View>
 
-            <Text style={{ fontSize: 14, color: '#666', marginBottom: 12 }}>
+            <Text style={{ fontSize: 14, color: colors.info, marginBottom: 12 }}>
               {todayActivity?.exercisesCompleted ?
                 `Great job, ${userName}! Keep up your learning streak!` :
                 `Start your learning journey today, ${userName}!`
@@ -413,52 +450,52 @@ export default function MainScreen() {
 
             {/* Progress Bar */}
             <View style={{
-              backgroundColor: '#bbdefb',
+              backgroundColor: colors.info + '40',
               height: 8,
               borderRadius: 4,
               overflow: 'hidden',
               marginBottom: 8
             }}>
               <View style={{
-                backgroundColor: '#1976d2',
+                backgroundColor: colors.info,
                 height: '100%',
                 width: `${progressPercentage}%`,
                 borderRadius: 4
               }} />
             </View>
 
-            <Text style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
+            <Text style={{ fontSize: 12, color: colors.info, marginBottom: 12 }}>
               {todayActivity?.exercisesCompleted || 0} of {todayTargetExercises} exercises completed
             </Text>
 
             {/* Today's Stats Row */}
             <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
               <View style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1976d2' }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.info }}>
                   {todayActivity?.pointsEarned || 0}
                 </Text>
-                <Text style={{ fontSize: 10, color: '#666' }}>XP Earned</Text>
+                <Text style={{ fontSize: 10, color: colors.info }}>XP Earned</Text>
               </View>
 
               <View style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1976d2' }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.info }}>
                   {todayActivity?.levelsCompleted || 0}
                 </Text>
-                <Text style={{ fontSize: 10, color: '#666' }}>Levels Done</Text>
+                <Text style={{ fontSize: 10, color: colors.info }}>Levels Done</Text>
               </View>
 
               <View style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1976d2' }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.info }}>
                   {todayActivity?.timeSpent || 0}m
                 </Text>
-                <Text style={{ fontSize: 10, color: '#666' }}>Time Spent</Text>
+                <Text style={{ fontSize: 10, color: colors.info }}>Time Spent</Text>
               </View>
 
               <View style={{ alignItems: 'center' }}>
-                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1976d2' }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: colors.info }}>
                   {progressStats?.totalScore || 0}
                 </Text>
-                <Text style={{ fontSize: 10, color: '#666' }}>Total XP</Text>
+                <Text style={{ fontSize: 10, color: colors.info }}>Total XP</Text>
               </View>
             </View>
           </View>
@@ -470,7 +507,7 @@ export default function MainScreen() {
             <Text style={{
               fontSize: 20,
               fontWeight: '600',
-              color: Colors.text,
+              color: colors.text,
               marginBottom: 20
             }}>
               Learning Activities
@@ -487,17 +524,17 @@ export default function MainScreen() {
                   key={index}
                   style={{
                     width: layout.isWeb ? 'calc(50% - 10px)' : '48%',
-                    backgroundColor: '#fff',
+                    backgroundColor: colors.surface,
                     borderRadius: 16,
                     padding: 20,
                     marginBottom: 15,
-                    shadowColor: '#000',
+                    shadowColor: colors.shadow,
                     shadowOffset: { width: 0, height: 2 },
                     shadowOpacity: 0.1,
                     shadowRadius: 8,
                     elevation: 3,
                     borderWidth: 1,
-                    borderColor: '#f0f0f0'
+                    borderColor: colors.border
                   }}
                   onPress={() => handleActivityPress(activity.category)}
                 >
@@ -516,7 +553,7 @@ export default function MainScreen() {
                   <Text style={{
                     fontSize: 16,
                     fontWeight: '600',
-                    color: Colors.text,
+                    color: colors.text,
                     marginBottom: 4
                   }}>
                     {activity.title}
@@ -524,7 +561,7 @@ export default function MainScreen() {
 
                   <Text style={{
                     fontSize: 12,
-                    color: '#666'
+                    color: colors.textSecondary
                   }}>
                     {activity.subtitle}
                   </Text>
@@ -535,25 +572,26 @@ export default function MainScreen() {
 
           {/* Daily Challenge - Updated with real data and user name */}
           <View style={{
-            backgroundColor: '#fff3e0',
+            backgroundColor: colors.warning + '20',
             padding: 20,
             borderRadius: 12,
             marginHorizontal: layout.isWeb ? 0 : 20,
             marginTop: 20,
-            borderLeft: '4px solid #ff9800'
+            borderLeftWidth: 4,
+            borderLeftColor: colors.warning
           }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-              <Ionicons name="trophy-outline" size={20} color="#ff9800" />
+              <Ionicons name="trophy-outline" size={20} color={colors.warning} />
               <Text style={{
                 fontSize: 16,
                 fontWeight: '600',
-                color: '#e65100',
+                color: colors.warning,
                 marginLeft: 8
               }}>
                 Daily Challenge for {userName}
               </Text>
             </View>
-            <Text style={{ fontSize: 14, color: '#bf360c', marginBottom: 12 }}>
+            <Text style={{ fontSize: 14, color: colors.warning, marginBottom: 12 }}>
               {(todayActivity?.exercisesCompleted || 0) >= 5 ?
                 `🎉 Challenge completed, ${userName}! You've done ${todayActivity?.exercisesCompleted} exercises today!` :
                 `Complete 5 vocabulary exercises today, ${userName}! (${todayActivity?.exercisesCompleted || 0}/5)`
@@ -561,7 +599,7 @@ export default function MainScreen() {
             </Text>
             <TouchableOpacity
               style={{
-                backgroundColor: (todayActivity?.exercisesCompleted || 0) >= 5 ? '#4caf50' : '#ff9800',
+                backgroundColor: (todayActivity?.exercisesCompleted || 0) >= 5 ? colors.success : colors.warning,
                 paddingHorizontal: 16,
                 paddingVertical: 8,
                 borderRadius: 8,
