@@ -150,7 +150,12 @@ export default function ExerciseDetailScreen() {
           'Error Loading Exercises',
           `Failed to load exercises: ${error.message}`,
           [
-            { text: 'Try Again', onPress: () => loadExercises() },
+            {
+              text: 'Try Again',
+              onPress: async () => {
+                await handleTryAgain();
+              }
+            }
             { text: 'Go Back', onPress: () => router.back() }
           ]
         );
@@ -216,6 +221,8 @@ export default function ExerciseDetailScreen() {
       }
     }
   };
+
+  // Fixed nextQuestion function in exercise-detail.tsx
 
   const nextQuestion = async () => {
     if (!mounted) return;
@@ -417,6 +424,98 @@ export default function ExerciseDetailScreen() {
       } finally {
         setLoading(false);
       }
+    }
+  };
+
+  // New function to reset and retry level
+  const resetAndRetryLevel = async () => {
+    setLoading(true);
+
+    try {
+      console.log(`🔄 Resetting level ${level} for retry...`);
+
+      // Call backend to reset level progress
+      const resetResponse = await makeRequest(`/progress/${language}/${category}/${level}/reset`, {
+        method: 'POST'
+      });
+
+      if (resetResponse.success) {
+        console.log('✅ Level reset successful, reloading exercises...');
+
+        // Reset all local state
+        setCurrentIndex(0);
+        setSelectedAnswer(null);
+        setShowResult(false);
+        setResult(null);
+        setCorrectCount(0);
+        // Note: Don't reset total score as it's now updated by backend
+
+        // Reload exercises to ensure fresh start
+        await loadExercises();
+
+        // Show success message
+        Alert.alert(
+          '🔄 Level Reset',
+          `Level ${level} has been reset successfully!\n\nYou can now retry all questions with a fresh start.`,
+          [{ text: 'Start Again', onPress: () => console.log('✅ Ready to retry') }]
+        );
+
+      } else {
+        throw new Error(resetResponse.message || 'Failed to reset level');
+      }
+
+    } catch (error) {
+      console.error('❌ Level reset failed:', error);
+      Alert.alert(
+        'Reset Failed',
+        `Could not reset the level: ${error.message}\n\nYou can still retry by going back to exercises and selecting this level again.`,
+        [
+          {
+            text: 'Go to Exercises',
+            onPress: () => {
+              router.replace({
+                pathname: '/(tabs)/exercises',
+                params: {
+                  selectedCategory: category,
+                  refresh: Date.now().toString()
+                }
+              });
+            }
+          }
+        ]
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Also add this function to handle manual retry from Try Again button in existing logic
+  const handleTryAgain = async () => {
+    setLoading(true);
+
+    try {
+      // Reset level progress in backend
+      await makeRequest(`/progress/${language}/${category}/${level}/reset`, {
+        method: 'POST'
+      });
+
+      // Reset local state
+      setCurrentIndex(0);
+      setSelectedAnswer(null);
+      setShowResult(false);
+      setResult(null);
+      setCorrectCount(0);
+
+      // Reload exercises
+      await loadExercises();
+
+      console.log('✅ Level reset for retry');
+
+    } catch (error) {
+      console.error('❌ Reset failed:', error);
+      Alert.alert('Error', 'Could not reset level. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 

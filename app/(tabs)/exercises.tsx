@@ -422,64 +422,102 @@ export default function ExercisesScreen() {
     const category = categories.find(c => c.id === selectedCategory);
     if (category && !category.availableLevels.includes(level)) {
       showToast(
-        `Level ${level} is not available for ${category.name} yet. Try Level ${Math.max(...category.availableLevels)} instead!`,
-        'warning',
-        `Try Level ${Math.max(...category.availableLevels)}`,
-        () => {
-          handleLevelSelect(Math.max(...category.availableLevels));
-          hideToast();
-        }
+        `Level ${level} is not available for ${category.name} yet.`,
+        'warning'
       );
       return;
     }
 
-    // İyileştirilmiş unlock kontrolü
+    // Check if level is completed (show retry option)
+    const isCompleted = progress?.completedLevels.some(cl => cl.level === level);
+
+    if (isCompleted) {
+      // Level is completed - offer retry option
+      Alert.alert(
+        '🏆 Level Already Completed',
+        `You have already completed Level ${level}. Would you like to retry it?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Retry Level',
+            onPress: async () => {
+              await resetAndStartLevel(level);
+            }
+          },
+          {
+            text: 'View Results',
+            onPress: () => {
+              // Navigate without reset - will show current progress
+              navigateToLevel(level);
+            }
+          }
+        ]
+      );
+      return;
+    }
+
+    // Check if level is unlocked
     if (!isLevelUnlocked(level)) {
       const previousLevel = level - 1;
       showToast(
-        `Level ${level} is locked! Complete Level ${previousLevel} first to unlock it.`,
-        'warning',
-        `Go to Level ${previousLevel}`,
-        () => {
-          if (isLevelUnlocked(previousLevel)) {
-            handleLevelSelect(previousLevel);
-          }
-          hideToast();
-        }
+        `Level ${level} is locked! Complete Level ${previousLevel} first.`,
+        'warning'
       );
       return;
     }
 
-    setLoading(true);
-    try {
-      console.log(`🔍 Checking exercises for level ${level}`);
+    // Navigate to level normally
+    navigateToLevel(level);
+  };
 
-      // Check if exercises exist for this level
+  const resetAndStartLevel = async (level: number) => {
+    setLoading(true);
+
+    try {
+      console.log(`🔄 Resetting level ${level} for retry...`);
+
+      // Call backend to reset level
+      const resetResponse = await makeRequest(`/progress/${targetLang}/${selectedCategory}/${level}/reset`, {
+        method: 'POST'
+      });
+
+      if (resetResponse.success) {
+        showToast(`Level ${level} reset successfully! Starting fresh...`, 'success');
+
+        // Navigate to the level
+        navigateToLevel(level);
+
+        // Refresh progress after a short delay
+        setTimeout(() => {
+          loadProgress();
+        }, 1000);
+
+      } else {
+        throw new Error(resetResponse.message || 'Reset failed');
+      }
+
+    } catch (error) {
+      console.error('❌ Level reset failed:', error);
+      showToast(`Failed to reset level: ${error.message}`, 'error');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const navigateToLevel = async (level: number) => {
+    setLoading(true);
+
+    try {
+      // Check if exercises exist
       const checkData = await makeRequest(`/progress/${targetLang}/${selectedCategory}/${level}/exercises`);
 
       if (!checkData.success || !checkData.exercises || checkData.exercises.length === 0) {
-        // Show specific error message based on what we know
-        const availableLevels = category?.availableLevels || [1];
-        const maxLevel = Math.max(...availableLevels);
-
-        showToast(
-          `No exercises found for Level ${level}. ${category?.name} currently has ${availableLevels.length} level(s) available.`,
-          'warning',
-          `Try Level ${maxLevel}`,
-          () => {
-            if (availableLevels.includes(maxLevel)) {
-              handleLevelSelect(maxLevel);
-            }
-            hideToast();
-          }
-        );
+        showToast(`No exercises found for Level ${level}.`, 'warning');
         return;
       }
 
-      console.log(`🚀 Navigating to exercise-detail`);
       showToast(`Loading Level ${level} exercises...`, 'info');
 
-      // Exercise detail sayfasına yönlendir
       router.push({
         pathname: '/(tabs)/exercise-detail',
         params: {
@@ -488,27 +526,10 @@ export default function ExercisesScreen() {
           level: level.toString()
         }
       });
-    } catch (error: any) {
-      console.error(`❌ Exercise check failed:`, error);
 
-      if (__DEV__) {
-        // Development mode - allow navigation even if API fails
-        console.log('🔧 Development mode: Allowing navigation despite API error');
-        showToast('Development mode: Navigating to exercise despite error...', 'info');
-        router.push({
-          pathname: '/(tabs)/exercise-detail',
-          params: {
-            language: targetLang,
-            category: selectedCategory,
-            level: level.toString()
-          }
-        });
-      } else {
-        showToast(
-          `Failed to load Level ${level} exercises. Please try again later.`,
-          'error'
-        );
-      }
+    } catch (error) {
+      console.error('❌ Navigation failed:', error);
+      showToast(`Failed to load Level ${level}.`, 'error');
     } finally {
       setLoading(false);
     }
