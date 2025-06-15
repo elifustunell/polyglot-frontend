@@ -227,7 +227,7 @@ export default function ExerciseDetailScreen() {
       setResult(null);
     } else {
       // All questions completed - calculate final results
-      const finalCorrectCount = correctCount;
+      const finalCorrectCount = correctCount + (result?.isCorrect ? 1 : 0);
       const finalScore = result?.totalScore || score;
       const percentage = Math.round((finalCorrectCount / exercises.length) * 100);
       const passThreshold = 60; // %60 geçme notu
@@ -723,5 +723,4 @@ export default function ExerciseDetailScreen() {
       </ScrollView>
     </View>
   );
-
 }
