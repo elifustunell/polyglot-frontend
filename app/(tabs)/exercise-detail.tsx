@@ -425,6 +425,7 @@ export default function ExerciseDetailScreen() {
         setLoading(false);
       }
     }
+
   };
 
   // New function to reset and retry level
