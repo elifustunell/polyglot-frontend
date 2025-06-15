@@ -12,6 +12,15 @@
   "jest": {
     "preset": "jest-expo"
   },
+
+  "scripts": {
+    "dev": "expo start",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "build:web": "expo export --platform web",
+    "export": "expo export --platform web"
+   },
   "dependencies": {
     "@expo/vector-icons": "^14.1.0",
     "@expo/webpack-config": "^19.0.1",
