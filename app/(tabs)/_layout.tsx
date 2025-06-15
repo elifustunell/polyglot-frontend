@@ -1,18 +1,17 @@
-// app/(tabs)/_layout.tsx - Font issues düzeltilmiş versiyon
+// app/(tabs)/_layout.tsx - Tab bar'ı tamamen gizlemek için düzeltilmiş version
 import { HapticTab } from '@/components/HapticTab';
+import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
+import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useAuth } from '@/context/AuthContext';
-import { useTheme } from '@/context/ThemeContext';
 import { Tabs, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user, loading } = useAuth();
-  const { colors } = useTheme();
   const router = useRouter();
   const segments = useSegments();
   const [isMounted, setIsMounted] = useState(false);
@@ -40,9 +39,9 @@ export default function TabLayout() {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: colors.background
+        backgroundColor: '#f5f5f5'
       }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        <ActivityIndicator size="large" color="#007AFF" />
       </View>
     );
   }
@@ -60,23 +59,18 @@ export default function TabLayout() {
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
-        tabBarStyle: shouldHideTabBar ?
-          { display: 'none' } :
-          {
-            backgroundColor: colors.tabBar,
-            borderTopColor: colors.border,
-            ...(Platform.select({
-              ios: {
-                position: 'absolute',
-              },
-              default: {},
-            }))
-          },
+        tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
+        tabBarStyle: shouldHideTabBar ?
+          { display: 'none' } :
+          Platform.select({
+            ios: {
+              position: 'absolute',
+            },
+            default: {},
+          }),
       }}>
 
       {/* Main navigation tabs */}
@@ -84,9 +78,7 @@ export default function TabLayout() {
         name="index"
         options={{
           title: 'Welcome',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size || 28} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
           href: null // Hidden from tab bar
         }}
       />
@@ -95,9 +87,7 @@ export default function TabLayout() {
         name="mainscreen"
         options={{
           title: 'Learn',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="book" size={size || 28} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.fill" color={color} />,
         }}
       />
 
@@ -105,9 +95,7 @@ export default function TabLayout() {
         name="exercises"
         options={{
           title: 'Exercises',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="game-controller" size={size || 28} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gamecontroller.fill" color={color} />,
         }}
       />
 
@@ -115,9 +103,7 @@ export default function TabLayout() {
         name="settings"
         options={{
           title: 'Settings',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="settings" size={size || 28} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gear" color={color} />,
         }}
       />
 

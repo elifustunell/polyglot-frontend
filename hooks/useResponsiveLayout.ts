@@ -1,105 +1,136 @@
-// hooks/useResponsiveLayout.ts
+// hooks/useResponsiveLayout.ts - Enhanced responsive layout hook
+import { useState, useEffect } from 'react';
 import { Dimensions, Platform } from 'react-native';
-import { useMemo } from 'react';
+import {
+breakpoints,
+spacing,
+fontSize,
+borderRadius,
+getResponsiveSize
+} from '@/constants/ResponsiveTheme';
 
-export interface ResponsiveLayout {
-  isWeb: boolean;
-  isMobile: boolean;
-  isTablet: boolean;
-  screenWidth: number;
-  screenHeight: number;
-  buttonWidth: number | string;
-  fontSize: {
-    small: number;
-    medium: number;
-    large: number;
-    xlarge: number;
-  };
-  spacing: {
-    small: number;
-    medium: number;
-    large: number;
-    xlarge: number;
-  };
-  breakpoints: {
-    mobile: number;
-    tablet: number;
-    desktop: number;
-  };
+interface ResponsiveLayout {
+isWeb: boolean;
+isMobile: boolean;
+isTablet: boolean;
+isDesktop: boolean;
+screenWidth: number;
+screenHeight: number;
+
+// Spacing
+spacing: typeof spacing;
+
+// Typography
+fontSize: typeof fontSize;
+
+// Border radius
+borderRadius: typeof borderRadius;
+
+// Button dimensions
+buttonWidth: number | string;
+buttonHeight: number;
+
+// Container dimensions
+containerMaxWidth: number | string;
+containerPadding: number;
+
+// Grid dimensions
+gridGap: number;
+gridItemWidth: string;
+
+// Card dimensions
+cardPadding: number;
+cardMargin: number;
+
+// Header dimensions
+headerPadding: number;
+headerMargin: number;
+
+// Safe area considerations
+safeAreaTop: number;
+safeAreaBottom: number;
 }
 
 export const useResponsiveLayout = (): ResponsiveLayout => {
-  const { width, height } = Dimensions.get('window');
+const [dimensions, setDimensions] = useState(() => {
+const { width, height } = Dimensions.get('window');
+return { width, height };
+});
+
+useEffect(() => {
+    const subscription = Dimensions.addEventListener('change', ({ window }) => {
+      setDimensions({ width: window.width, height: window.height });
+    });
+
+    return () => subscription?.remove();
+  }, []);
+
+  const { width, height } = dimensions;
+
+  // Device type detection
   const isWeb = Platform.OS === 'web';
+  const isMobile = width < breakpoints.mobile;
+  const isTablet = width >= breakpoints.mobile && width < breakpoints.tablet;
+  const isDesktop = width >= breakpoints.desktop;
 
-  const layout = useMemo(() => {
-    const breakpoints = {
-      mobile: 768,
-      tablet: 1024,
-      desktop: 1200
-    };
+  // Button dimensions
+  const buttonWidth = isWeb ?
+    (isDesktop ? 320 : isTablet ? 280 : 240) :
+    '100%';
+  const buttonHeight = getResponsiveSize(44, 48, 52);
 
-    const isMobile = width < breakpoints.mobile;
-    const isTablet = width >= breakpoints.mobile && width < breakpoints.desktop;
+  // Container dimensions
+  const containerMaxWidth = isWeb ?
+    (isDesktop ? 1200 : isTablet ? 900 : 600) :
+    '100%';
+  const containerPadding = getResponsiveSize(16, 20, 24);
 
-    // Font sizes
-    const baseFontSize = isWeb ? 16 : width * 0.04;
-    const fontSize = {
-      small: isWeb ? 12 : Math.max(width * 0.03, 12),
-      medium: isWeb ? 16 : Math.max(width * 0.04, 14),
-      large: isWeb ? 20 : Math.max(width * 0.05, 16),
-      xlarge: isWeb ? 28 : Math.max(width * 0.07, 20)
-    };
+  // Grid dimensions
+  const gridGap = getResponsiveSize(12, 16, 20);
+  const gridItemWidth = isWeb ?
+    (isDesktop ? 'calc(33.333% - 14px)' : isTablet ? 'calc(50% - 10px)' : '100%') :
+    (isMobile ? '48%' : 'calc(33.333% - 8px)');
 
-    // Spacing
-    const spacing = {
-      small: isWeb ? 8 : width * 0.02,
-      medium: isWeb ? 16 : width * 0.04,
-      large: isWeb ? 24 : width * 0.06,
-      xlarge: isWeb ? 32 : width * 0.08
-    };
+  // Card dimensions
+  const cardPadding = getResponsiveSize(16, 20, 24);
+  const cardMargin = getResponsiveSize(16, 20, 24);
 
-    // Button width
-    const buttonWidth = isWeb ? '100%' : width * 0.8;
+  // Header dimensions
+  const headerPadding = getResponsiveSize(16, 20, 24);
+  const headerMargin = getResponsiveSize(16, 20, 24);
 
-    return {
-      isWeb,
-      isMobile,
-      isTablet,
-      screenWidth: width,
-      screenHeight: height,
-      buttonWidth,
-      fontSize,
-      spacing,
-      breakpoints
-    };
-  }, [width, height, isWeb]);
+  // Safe area (for mobile apps with notches)
+  const safeAreaTop = Platform.OS === 'ios' ? 44 : 24;
+  const safeAreaBottom = Platform.OS === 'ios' ? 34 : 0;
 
-  return layout;
-};
-
-// Utility functions
-export const getResponsiveValue = (
-  webValue: any,
-  tabletValue: any,
-  mobileValue: any,
-  layout: ResponsiveLayout
-) => {
-  if (layout.isWeb && !layout.isMobile) return webValue;
-  if (layout.isTablet) return tabletValue;
-  return mobileValue;
-};
-
-export const getResponsiveMargin = (layout: ResponsiveLayout) => {
   return {
-    marginHorizontal: layout.isWeb ? 0 : layout.spacing.medium,
-    marginVertical: layout.spacing.small
-  };
-};
+    isWeb,
+    isMobile,
+    isTablet,
+    isDesktop,
+    screenWidth: width,
+    screenHeight: height,
 
-export const getResponsivePadding = (layout: ResponsiveLayout) => {
-  return {
-    paddingHorizontal: layout.isWeb ? layout.spacing.xlarge : layout.spacing.medium,
-    paddingVertical: layout.spacing.medium
+    spacing,
+    fontSize,
+    borderRadius,
+
+    buttonWidth,
+    buttonHeight,
+
+    containerMaxWidth,
+    containerPadding,
+
+    gridGap,
+    gridItemWidth,
+
+    cardPadding,
+    cardMargin,
+
+    headerPadding,
+    headerMargin,
+
+    safeAreaTop,
+    safeAreaBottom
   };
 };

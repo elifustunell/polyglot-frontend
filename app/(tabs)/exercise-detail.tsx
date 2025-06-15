@@ -1,12 +1,14 @@
-// app/(tabs)/exercise-detail.tsx - %60 başarı kuralı ve düzgün navigation ile
+// app/(tabs)/exercise-detail.tsx - Simplified with multiple choice options like other exercises
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { Colors, GlobalStyles } from '@/constants/Theme';
 import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
+import { getFlagImage } from '@/utils/helpers';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CONFIG } from '@/constants/Config';
 
@@ -37,6 +39,7 @@ interface SubmitResult {
 export default function ExerciseDetailScreen() {
   const { language, category, level } = useLocalSearchParams();
   const { user, getFirebaseToken } = useAuth();
+  const { targetLang } = useLanguage();
   const router = useRouter();
   const layout = useResponsiveLayout();
 
@@ -227,7 +230,7 @@ export default function ExerciseDetailScreen() {
       setResult(null);
     } else {
       // All questions completed - calculate final results
-      const finalCorrectCount = correctCount + (result?.isCorrect ? 1 : 0);
+      const finalCorrectCount = correctCount;
       const finalScore = result?.totalScore || score;
       const percentage = Math.round((finalCorrectCount / exercises.length) * 100);
       const passThreshold = 60; // %60 geçme notu
@@ -307,6 +310,15 @@ export default function ExerciseDetailScreen() {
     }
   };
 
+  const resetQuiz = () => {
+    setCurrentIndex(0);
+    setSelectedAnswer(null);
+    setShowResult(false);
+    setResult(null);
+    setCorrectCount(0);
+    setScore(0);
+  };
+
   // Loading state
   if (loading && exercises.length === 0) {
     return (
@@ -354,7 +366,7 @@ export default function ExerciseDetailScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
-          paddingBottom: layout.isWeb ? 40 : 20 // Tab bar için daha az padding
+          paddingBottom: layout.isWeb ? 40 : 100
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -376,7 +388,10 @@ export default function ExerciseDetailScreen() {
             ]}>
               {String(category).charAt(0).toUpperCase() + String(category).slice(1)} - Level {level}
             </Text>
-            <View style={{ width: 24 }} />
+            <Image
+              source={getFlagImage(targetLang)}
+              style={GlobalStyles.flagImage}
+            />
           </View>
 
           <View style={{ paddingHorizontal: layout.isWeb ? 0 : 20 }}>
@@ -401,41 +416,24 @@ export default function ExerciseDetailScreen() {
               backgroundColor: '#e3f2fd',
               padding: 16,
               borderRadius: 12,
-              marginBottom: 24,
-              flexDirection: 'row',
-              justifyContent: 'space-between',
-              alignItems: 'center'
+              marginBottom: 24
             }}>
-              <View>
-                <Text style={{
-                  fontSize: 16,
-                  fontWeight: '600',
-                  color: '#1976d2'
-                }}>
-                  Question {currentIndex + 1} of {exercises.length}
-                </Text>
-                <Text style={{
-                  fontSize: 12,
-                  color: '#1565c0',
-                  marginTop: 2
-                }}>
-                  Need 60% to pass level
-                </Text>
-              </View>
-              <View style={{
-                backgroundColor: '#4caf50',
-                paddingHorizontal: 12,
-                paddingVertical: 4,
-                borderRadius: 12
+              <Text style={{
+                fontSize: 18,
+                fontWeight: '600',
+                color: '#1976d2',
+                textAlign: 'center',
+                marginBottom: 8
               }}>
-                <Text style={{
-                  color: '#fff',
-                  fontSize: 12,
-                  fontWeight: '600'
-                }}>
-                  {correctCount}/{exercises.length} ✓
-                </Text>
-              </View>
+                Question {currentIndex + 1} of {exercises.length}
+              </Text>
+              <Text style={{
+                fontSize: 14,
+                color: '#666',
+                textAlign: 'center'
+              }}>
+                Score: {correctCount}/{currentIndex + (showResult ? 1 : 0)} • Need 60% to pass
+              </Text>
             </View>
 
             {/* Question */}
@@ -527,45 +525,64 @@ export default function ExerciseDetailScreen() {
                     key={index}
                     style={[
                       {
-                        padding: 16,
-                        borderRadius: 12,
+                        flexDirection: 'row',
                         alignItems: 'center',
+                        justifyContent: 'space-between',
+                        padding: 20,
+                        borderRadius: 16,
                         shadowColor: '#000',
                         shadowOffset: { width: 0, height: 2 },
                         shadowOpacity: 0.1,
-                        shadowRadius: 4,
-                        elevation: 2,
-                        position: 'relative'
+                        shadowRadius: 8,
+                        elevation: 3
                       },
                       buttonStyle
                     ]}
                     onPress={() => handleAnswerSelect(option)}
                     disabled={showResult || loading}
                   >
-                    <Text style={{
-                      fontSize: 16,
-                      fontWeight: '600',
-                      color: textColor,
-                      textAlign: 'center'
-                    }}>
-                      {option}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+                      <View style={{
+                        width: 40,
+                        height: 40,
+                        borderRadius: 20,
+                        backgroundColor: textColor + '20',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        marginRight: 16
+                      }}>
+                        <Text style={{
+                          fontSize: 18,
+                          fontWeight: 'bold',
+                          color: textColor
+                        }}>
+                          {String.fromCharCode(65 + index)}
+                        </Text>
+                      </View>
+
+                      <Text style={{
+                        fontSize: 18,
+                        fontWeight: '600',
+                        color: textColor,
+                        flex: 1
+                      }}>
+                        {option}
+                      </Text>
+                    </View>
 
                     {showResult && result && option === result.correctAnswer && (
                       <Ionicons
                         name="checkmark-circle"
-                        size={20}
+                        size={24}
                         color="#4caf50"
-                        style={{ position: 'absolute', top: 8, right: 8 }}
                       />
                     )}
 
                     {showResult && selectedAnswer === option && result && option !== result.correctAnswer && (
                       <Ionicons
                         name="close-circle"
-                        size={20}
+                        size={24}
                         color="#f44336"
-                        style={{ position: 'absolute', top: 8, right: 8 }}
                       />
                     )}
                   </TouchableOpacity>
@@ -640,51 +657,103 @@ export default function ExerciseDetailScreen() {
               </View>
             )}
 
-            {/* Action Button */}
-            <TouchableOpacity
-              style={{
-                backgroundColor: showResult ? (result?.isCorrect ? '#4caf50' : '#2196f3') : Colors.primary,
-                padding: 16,
-                borderRadius: 12,
-                alignItems: 'center',
-                marginBottom: 20,
-                opacity: (!showResult && !selectedAnswer) || loading ? 0.6 : 1
-              }}
-              onPress={showResult ? nextQuestion : submitAnswer}
-              disabled={(!showResult && !selectedAnswer) || loading}
-            >
-              {loading ? (
-                <ActivityIndicator size="small" color="#fff" />
+            {/* Action Buttons */}
+            <View style={{
+              flexDirection: layout.isWeb ? 'row' : 'column',
+              gap: 12
+            }}>
+              {!showResult ? (
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: Colors.primary,
+                    padding: 16,
+                    borderRadius: 12,
+                    alignItems: 'center',
+                    flex: layout.isWeb ? 1 : undefined,
+                    opacity: (!showResult && !selectedAnswer) || loading ? 0.6 : 1
+                  }}
+                  onPress={submitAnswer}
+                  disabled={(!showResult && !selectedAnswer) || loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons
+                        name="send"
+                        size={20}
+                        color="#fff"
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text style={{
+                        color: '#fff',
+                        fontSize: 16,
+                        fontWeight: '600'
+                      }}>
+                        Submit Answer
+                      </Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
               ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons
-                    name={showResult ?
-                      (currentIndex < exercises.length - 1 ? "arrow-forward" : "checkmark-done") :
-                      "send"
-                    }
-                    size={20}
-                    color="#fff"
-                    style={{ marginRight: 8 }}
-                  />
-                  <Text style={{
-                    color: '#fff',
-                    fontSize: 16,
-                    fontWeight: '600'
-                  }}>
-                    {showResult ?
-                      (currentIndex < exercises.length - 1 ? 'Next Question' : 'Complete Level') :
-                      'Submit Answer'
-                    }
-                  </Text>
-                </View>
+                <>
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#fff',
+                      borderWidth: 2,
+                      borderColor: Colors.primary,
+                      padding: 16,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      flex: layout.isWeb ? 1 : undefined
+                    }}
+                    onPress={resetQuiz}
+                  >
+                    <Text style={{
+                      color: Colors.primary,
+                      fontSize: 16,
+                      fontWeight: '600'
+                    }}>
+                      Restart Exercise
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: Colors.primary,
+                      padding: 16,
+                      borderRadius: 12,
+                      alignItems: 'center',
+                      flex: layout.isWeb ? 1 : undefined
+                    }}
+                    onPress={nextQuestion}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons
+                        name={currentIndex < exercises.length - 1 ? "arrow-forward" : "checkmark-done"}
+                        size={20}
+                        color="#fff"
+                        style={{ marginRight: 8 }}
+                      />
+                      <Text style={{
+                        color: '#fff',
+                        fontSize: 16,
+                        fontWeight: '600'
+                      }}>
+                        {currentIndex < exercises.length - 1 ? 'Next Question' : 'Complete Level'}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </>
               )}
-            </TouchableOpacity>
+            </View>
 
             {/* Score Display */}
             <View style={{
               backgroundColor: '#f8f9fa',
               padding: 16,
               borderRadius: 12,
+              marginTop: 20,
               alignItems: 'center'
             }}>
               <Text style={{
