@@ -1,4 +1,4 @@
-// app/(tabs)/profile.tsx - Real user data ile güncellenmiş
+// app/(tabs)/profile.tsx - İsim değişikliklerini tüm uygulamada senkronize eden versiyon
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator } from 'react-native';
@@ -9,7 +9,6 @@ import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRouter, useFocusEffect } from 'expo-router';
-
 import { CONFIG } from '@/constants/Config';
 
 interface UserStats {
@@ -29,16 +28,19 @@ interface TodayActivity {
 }
 
 export default function ProfileScreen() {
-  const { user, loading: authLoading, getFirebaseToken } = useAuth();
+  const { user, loading: authLoading, getFirebaseToken, updateUserProfile, refreshUser } = useAuth();
   const { sourceLang, targetLang } = useLanguage();
   const router = useRouter();
   const layout = useResponsiveLayout();
+
+  // Profile editing states
   const [name, setName] = useState(user?.displayName || user?.email?.split('@')[0] || '');
   const [email] = useState(user?.email || '');
   const [isEditing, setIsEditing] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
 
-  // Real user stats from API
+  // Progress states
   const [userStats, setUserStats] = useState<UserStats | null>(null);
   const [todayActivity, setTodayActivity] = useState<TodayActivity | null>(null);
   const [loading, setLoading] = useState(false);
@@ -47,10 +49,7 @@ export default function ProfileScreen() {
     : new Date().toLocaleDateString()
   );
 
-
-
   const API_BASE_URL = CONFIG.API_BASE_URL;
-
 
   useEffect(() => {
     setIsMounted(true);
@@ -64,6 +63,13 @@ export default function ProfileScreen() {
       return () => clearTimeout(timer);
     }
   }, [user, authLoading, isMounted, router]);
+
+  // Update name when user changes (for real-time sync)
+  useEffect(() => {
+    if (user?.displayName !== name) {
+      setName(user?.displayName || user?.email?.split('@')[0] || '');
+    }
+  }, [user?.displayName]);
 
   // Load user stats when screen focuses
   useFocusEffect(
@@ -184,14 +190,47 @@ export default function ProfileScreen() {
     return 200 - progressInLevel;
   };
 
+  // Profile editing functions
+  const handleEditToggle = () => {
+    if (isEditing) {
+      // Cancel editing - reset name to original
+      setName(user?.displayName || user?.email?.split('@')[0] || '');
+    }
+    setIsEditing(!isEditing);
+  };
+
   const handleSave = async () => {
+    if (!name.trim()) {
+      Alert.alert('Error', 'Name cannot be empty');
+      return;
+    }
+
+    if (name.trim().length < 2) {
+      Alert.alert('Error', 'Name must be at least 2 characters long');
+      return;
+    }
+
+    setEditLoading(true);
     try {
-      // In a real app, you would update the user's display name
-      // For now, just show success message
-      Alert.alert('Success', 'Profile updated successfully!');
+      console.log('💾 Updating user profile...');
+
+      // Update Firebase Auth profile using context method
+      await updateUserProfile({
+        displayName: name.trim()
+      });
+
+      console.log('✅ Profile updated successfully');
+      Alert.alert('Success', 'Profile updated successfully! Your name will be updated throughout the app.');
       setIsEditing(false);
-    } catch (error) {
+
+      // Force refresh user data to ensure all components get updated
+      await refreshUser();
+
+    } catch (error: any) {
+      console.error('❌ Failed to update profile:', error);
       Alert.alert('Error', 'Failed to update profile. Please try again.');
+    } finally {
+      setEditLoading(false);
     }
   };
 
@@ -226,7 +265,7 @@ export default function ProfileScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
-          paddingBottom: layout.isWeb ? 40 : 100
+          paddingBottom: layout.isWeb ? 40 : 20 // Reduced for tab bar
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -248,11 +287,18 @@ export default function ProfileScreen() {
             ]}>
               Profile
             </Text>
-            <TouchableOpacity onPress={() => setIsEditing(!isEditing)}>
+            <TouchableOpacity
+              onPress={handleEditToggle}
+              style={{
+                padding: 8,
+                backgroundColor: isEditing ? '#ff3b30' : '#007AFF',
+                borderRadius: 8,
+              }}
+            >
               <Ionicons
-                name={isEditing ? "checkmark" : "create-outline"}
-                size={24}
-                color="#007AFF"
+                name={isEditing ? "close" : "create-outline"}
+                size={20}
+                color="#fff"
               />
             </TouchableOpacity>
           </View>
@@ -289,7 +335,7 @@ export default function ProfileScreen() {
                 color: Colors.text,
                 marginBottom: 4
               }}>
-                {name || user?.email?.split('@')[0] || 'User'}
+                {user?.displayName || user?.email?.split('@')[0] || 'User'}
               </Text>
 
               <View style={{
@@ -523,13 +569,23 @@ export default function ProfileScreen() {
                       padding: isEditing ? 12 : 0,
                       borderRadius: isEditing ? 8 : 0,
                       borderWidth: isEditing ? 1 : 0,
-                      borderColor: '#e0e0e0'
+                      borderColor: isEditing ? Colors.primary : 'transparent'
                     }}
                     value={name}
                     onChangeText={setName}
                     placeholder="Enter your display name"
                     editable={isEditing}
                   />
+                  {isEditing && (
+                    <Text style={{
+                      fontSize: 12,
+                      color: '#666',
+                      marginTop: 4,
+                      fontStyle: 'italic'
+                    }}>
+                      This name will be updated throughout the app
+                    </Text>
+                  )}
                 </View>
 
                 <View style={{
@@ -578,20 +634,32 @@ export default function ProfileScreen() {
                     padding: 16,
                     borderRadius: 12,
                     alignItems: 'center',
-                    marginTop: 16
+                    marginTop: 16,
+                    flexDirection: 'row',
+                    justifyContent: 'center'
                   }}
                   onPress={handleSave}
+                  disabled={editLoading}
                 >
-                  <Text style={{
-                    color: '#fff',
-                    fontSize: 16,
-                    fontWeight: '600'
-                  }}>
-                    Save Changes
-                  </Text>
+                  {editLoading ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <>
+                      <Ionicons name="checkmark" size={20} color="#fff" style={{ marginRight: 8 }} />
+                      <Text style={{
+                        color: '#fff',
+                        fontSize: 16,
+                        fontWeight: '600'
+                      }}>
+                        Save Changes
+                      </Text>
+                    </>
+                  )}
                 </TouchableOpacity>
               )}
             </View>
+
+
 
             {/* Categories Progress */}
             <View style={{ marginBottom: 24 }}>
@@ -653,9 +721,6 @@ export default function ProfileScreen() {
                 </View>
               </View>
             </View>
-
-
-
           </View>
         </View>
       </ScrollView>

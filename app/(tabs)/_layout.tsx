@@ -1,11 +1,11 @@
-// app/(tabs)/_layout.tsx - Cleaned version
+// app/(tabs)/_layout.tsx - Tab bar'ı tamamen gizlemek için düzeltilmiş version
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import { useAuth } from '@/context/AuthContext';
-import { Tabs, useRouter } from 'expo-router';
+import { Tabs, useRouter, useSegments } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, View, ActivityIndicator } from 'react-native';
 
@@ -13,6 +13,7 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const { user, loading } = useAuth();
   const router = useRouter();
+  const segments = useSegments();
   const [isMounted, setIsMounted] = useState(false);
 
   // Component mount tracking
@@ -50,6 +51,11 @@ export default function TabLayout() {
     return null;
   }
 
+  // Tab bar'ı gizlenecek ekranlar
+  const hideTabBarScreens = ['profile', 'exercise-detail', 'settings'];
+  const currentScreen = segments[segments.length - 1];
+  const shouldHideTabBar = hideTabBarScreens.includes(currentScreen);
+
   return (
     <Tabs
       screenOptions={{
@@ -57,12 +63,14 @@ export default function TabLayout() {
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarBackground: TabBarBackground,
-        tabBarStyle: Platform.select({
-          ios: {
-            position: 'absolute',
-          },
-          default: {},
-        }),
+        tabBarStyle: shouldHideTabBar ?
+          { display: 'none' } :
+          Platform.select({
+            ios: {
+              position: 'absolute',
+            },
+            default: {},
+          }),
       }}>
 
       {/* Main navigation tabs */}

@@ -1,4 +1,5 @@
-// app/(tabs)/settings.tsx - Toast bildirimleri ve düzeltilmiş logout ile
+// app/(tabs)/settings.tsx - Real-time name updates ile düzeltilmiş
+
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, Switch, ScrollView, ActivityIndicator, Animated } from 'react-native';
 import { useLanguage } from '@/context/LanguageContext';
@@ -7,7 +8,7 @@ import { Colors, GlobalStyles } from '@/constants/Theme';
 import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 // Toast Component
 const Toast = ({ message, type = 'info', visible, onHide }: {
@@ -284,6 +285,9 @@ export default function SettingsScreen() {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
+  // Real-time user name - will update when user changes name in profile
+  const [userName, setUserName] = useState(user?.displayName || user?.email?.split('@')[0] || 'User');
+
   // Toast state
   const [toast, setToast] = useState<{
     visible: boolean;
@@ -313,13 +317,32 @@ export default function SettingsScreen() {
       showToast('Successfully logged out. See you next time!', 'success');
 
       const timer = setTimeout(() => {
-
         router.replace('/login');
       }, 1500);
 
       return () => clearTimeout(timer);
     }
   }, [user, loading, isMounted, router]);
+
+  // Update user name when user object changes (real-time sync)
+  useEffect(() => {
+    if (user) {
+      const newName = user.displayName || user.email?.split('@')[0] || 'User';
+      setUserName(newName);
+      console.log('👤 User name updated in Settings:', newName);
+    }
+  }, [user?.displayName, user?.email]);
+
+  // Refresh user data when screen focuses
+  useFocusEffect(
+    React.useCallback(() => {
+      if (user) {
+        const newName = user.displayName || user.email?.split('@')[0] || 'User';
+        setUserName(newName);
+        console.log('🔄 Settings screen focused, refreshing user name:', newName);
+      }
+    }, [user])
+  );
 
   // Early returns - hook'lardan sonra
   if (loading || !isMounted) {
@@ -363,7 +386,6 @@ export default function SettingsScreen() {
 
       setTimeout(() => {
         console.log('🔄 Force redirecting to welcome screen...');
-
         router.replace('/login');
       }, 1000);
 
@@ -453,7 +475,7 @@ export default function SettingsScreen() {
           <View style={{
             paddingHorizontal: layout.isWeb ? 0 : 16
           }}>
-            {/* User Info Section */}
+            {/* User Info Section with Real-time Name */}
             <View style={{
               backgroundColor: '#f8f9fa',
               borderRadius: 16,
@@ -481,7 +503,7 @@ export default function SettingsScreen() {
                   color: Colors.text,
                   marginBottom: 4
                 }}>
-                  {user?.name || user?.email?.split('@')[0] || 'User'}
+                  {userName}
                 </Text>
                 <Text style={{
                   fontSize: 14,

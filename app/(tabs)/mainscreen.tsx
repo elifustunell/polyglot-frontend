@@ -1,5 +1,4 @@
-// app/(tabs)/mainscreen.tsx - Real progress data ile güncellenmiş
-
+// app/(tabs)/mainscreen.tsx - Real-time name updates ile güncellenmiş
 
 import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
 import { Colors, GlobalStyles } from '@/constants/Theme';
@@ -37,10 +36,10 @@ export default function MainScreen() {
   const [todayActivity, setTodayActivity] = useState<TodayActivity | null>(null);
   const [progressLoading, setProgressLoading] = useState(false);
 
+  // Real-time user name - will update when user changes name in profile
+  const [userName, setUserName] = useState(user?.displayName || user?.email?.split('@')[0] || '');
 
   const API_BASE_URL = CONFIG.API_BASE_URL;
-
-
 
   useEffect(() => {
     setIsMounted(true);
@@ -54,6 +53,15 @@ export default function MainScreen() {
       return () => clearTimeout(timer);
     }
   }, [user, loading, isMounted, router]);
+
+  // Update user name when user object changes (real-time sync)
+  useEffect(() => {
+    if (user) {
+      const newName = user.displayName || user.email?.split('@')[0] || '';
+      setUserName(newName);
+      console.log('👤 User name updated in MainScreen:', newName);
+    }
+  }, [user?.displayName, user?.email]);
 
   // Load progress when screen focuses (after completing exercises)
   useFocusEffect(
@@ -288,7 +296,7 @@ export default function MainScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={cardStyle}>
-          {/* Header */}
+          {/* Header with Dynamic User Name */}
           <View style={[
             GlobalStyles.headerContainer,
             layout.isWeb && { paddingHorizontal: 0, marginBottom: 30 }
@@ -306,6 +314,35 @@ export default function MainScreen() {
             >
               <Ionicons name="settings-outline" size={24} color="#666" />
             </TouchableOpacity>
+          </View>
+
+          {/* Welcome Message with Real-time Name */}
+          <View style={{
+            backgroundColor: '#e8f5e8',
+            borderRadius: 16,
+            padding: 20,
+            marginBottom: 30,
+            marginHorizontal: layout.isWeb ? 0 : 20,
+            alignItems: 'center'
+          }}>
+            <Ionicons name="person-circle-outline" size={48} color="#4caf50" style={{ marginBottom: 12 }} />
+            <Text style={{
+              fontSize: 22,
+              fontWeight: '600',
+              color: '#2e7d32',
+              textAlign: 'center',
+              marginBottom: 8
+            }}>
+              Welcome back, {userName}! 🎉
+            </Text>
+            <Text style={{
+              fontSize: 14,
+              color: '#388e3c',
+              textAlign: 'center',
+              lineHeight: 20
+            }}>
+              Ready to continue your language learning journey?
+            </Text>
           </View>
 
           {/* Language Display */}
@@ -369,8 +406,8 @@ export default function MainScreen() {
 
             <Text style={{ fontSize: 14, color: '#666', marginBottom: 12 }}>
               {todayActivity?.exercisesCompleted ?
-                `Great job! Keep up your learning streak!` :
-                `Start your learning journey today!`
+                `Great job, ${userName}! Keep up your learning streak!` :
+                `Start your learning journey today, ${userName}!`
               }
             </Text>
 
@@ -496,7 +533,7 @@ export default function MainScreen() {
             </View>
           </View>
 
-          {/* Daily Challenge - Updated with real data */}
+          {/* Daily Challenge - Updated with real data and user name */}
           <View style={{
             backgroundColor: '#fff3e0',
             padding: 20,
@@ -513,13 +550,13 @@ export default function MainScreen() {
                 color: '#e65100',
                 marginLeft: 8
               }}>
-                Daily Challenge
+                Daily Challenge for {userName}
               </Text>
             </View>
             <Text style={{ fontSize: 14, color: '#bf360c', marginBottom: 12 }}>
               {(todayActivity?.exercisesCompleted || 0) >= 5 ?
-                `🎉 Challenge completed! You've done ${todayActivity?.exercisesCompleted} exercises today!` :
-                `Complete 5 vocabulary exercises ! (${todayActivity?.exercisesCompleted || 0}/5)`
+                `🎉 Challenge completed, ${userName}! You've done ${todayActivity?.exercisesCompleted} exercises today!` :
+                `Complete 5 vocabulary exercises today, ${userName}! (${todayActivity?.exercisesCompleted || 0}/5)`
               }
             </Text>
             <TouchableOpacity

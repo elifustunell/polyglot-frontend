@@ -1,4 +1,4 @@
-// app/(tabs)/exercise-detail.tsx - Clean version with proper token
+// app/(tabs)/exercise-detail.tsx - %60 başarı kuralı ve düzgün navigation ile
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
@@ -8,7 +8,6 @@ import { Colors, GlobalStyles } from '@/constants/Theme';
 import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import Constants from 'expo-constants';
 import { CONFIG } from '@/constants/Config';
 
 interface Exercise {
@@ -31,11 +30,13 @@ interface SubmitResult {
   nextLevelUnlocked: boolean;
   unlockedLevels: number[];
   currentLevel: number;
+  exercisesCompletedInLevel?: number;
+  totalExercisesInLevel?: number;
 }
 
 export default function ExerciseDetailScreen() {
   const { language, category, level } = useLocalSearchParams();
-  const { user, getFirebaseToken } = useAuth(); // getFirebaseToken'ı destructure et
+  const { user, getFirebaseToken } = useAuth();
   const router = useRouter();
   const layout = useResponsiveLayout();
 
@@ -49,9 +50,7 @@ export default function ExerciseDetailScreen() {
   const [correctCount, setCorrectCount] = useState(0);
   const [mounted, setMounted] = useState(false);
 
-
- const API_BASE_URL = CONFIG.API_BASE_URL;
-
+  const API_BASE_URL = CONFIG.API_BASE_URL;
 
   useEffect(() => {
     setMounted(true);
@@ -81,7 +80,6 @@ export default function ExerciseDetailScreen() {
     try {
       console.log(`🔥 Making request to: ${API_BASE_URL}${url}`);
 
-      // Firebase token al - getFirebaseToken fonksiyonunu kullan
       const token = await getFirebaseToken();
       if (!token) {
         throw new Error('No authentication token available');
@@ -203,7 +201,6 @@ export default function ExerciseDetailScreen() {
 
         console.log('✅ Answer submitted successfully');
         console.log('📊 Updated total score:', data.result.totalScore);
-        console.log('🎯 Level progress:', `${data.result.exercisesCompletedInLevel}/${data.result.totalExercisesInLevel}`);
       } else {
         throw new Error('Failed to submit answer');
       }
@@ -229,54 +226,66 @@ export default function ExerciseDetailScreen() {
       setShowResult(false);
       setResult(null);
     } else {
-      // All questions completed - show final results
+      // All questions completed - calculate final results
       const finalCorrectCount = correctCount + (result?.isCorrect ? 1 : 0);
       const finalScore = result?.totalScore || score;
       const percentage = Math.round((finalCorrectCount / exercises.length) * 100);
+      const passThreshold = 60; // %60 geçme notu
+      const isPassed = percentage >= passThreshold;
 
       console.log('🎉 Level completion stats:', {
         correctAnswers: finalCorrectCount,
         totalQuestions: exercises.length,
         percentage,
         totalScore: finalScore,
-        levelCompleted: result?.levelCompleted,
-        nextLevelUnlocked: result?.nextLevelUnlocked
+        isPassed,
+        passThreshold
       });
 
-      // Show completion dialog
+      // Show completion dialog with 60% rule
+      const alertTitle = isPassed ? '🎉 Level Completed!' : '📚 Try Again!';
+      const alertMessage = `You answered ${finalCorrectCount} out of ${exercises.length} questions correctly (${percentage}%)\n\nTotal XP: ${finalScore}\n\n${
+        isPassed
+          ? '🎊 Great! You passed with ' + percentage + '%! Next level unlocked!'
+          : '📝 You need at least ' + passThreshold + '% to pass. Keep practicing!'
+      }`;
+
       Alert.alert(
-        '🎉 Level Complete!',
-        `You answered ${finalCorrectCount} out of ${exercises.length} questions correctly (${percentage}%)\n\nTotal XP: ${finalScore}\n\n${
-          result?.levelCompleted
-            ? result?.nextLevelUnlocked
-              ? '🎊 Excellent! Next level unlocked!'
-              : '🎊 Level completed perfectly!'
-            : finalCorrectCount >= Math.ceil(exercises.length * 0.7)
-              ? '🎯 Good job! You can move to the next level!'
-              : '📚 Keep practicing to improve your score!'
-        }`,
+        alertTitle,
+        alertMessage,
         [
           {
-            text: 'Continue',
+            text: isPassed ? 'Continue to Exercises' : 'Return to Exercises',
             onPress: async () => {
-              // Mark level as complete if not already done
-              if (result?.levelCompleted) {
+              // Mark level as complete only if passed (60% or higher)
+              if (isPassed) {
                 try {
                   await makeRequest(`/progress/${language}/${category}/${level}/complete`, {
-                    method: 'POST'
+                    method: 'POST',
+                    body: JSON.stringify({
+                      percentage: percentage,
+                      correctAnswers: finalCorrectCount,
+                      totalQuestions: exercises.length
+                    })
                   });
                   console.log('✅ Level completion confirmed');
                 } catch (error) {
-                  console.log('⚠️ Level already completed or error:', error.message);
+                  console.log('⚠️ Level completion error:', error.message);
                 }
               }
 
-              // Navigate back to exercises page with refresh
-              // Use replace to force refresh of the exercises page
+              // Navigate back to exercises page with proper parameters
+              console.log('🚀 Navigating back to exercises with params:', {
+                selectedCategory: category,
+                refresh: Date.now().toString()
+              });
+
+              // Use replace to ensure navigation works
               router.replace({
                 pathname: '/(tabs)/exercises',
                 params: {
-                  refresh: Date.now().toString() // Force refresh with timestamp
+                  selectedCategory: category,
+                  refresh: Date.now().toString()
                 }
               });
             }
@@ -345,7 +354,7 @@ export default function ExerciseDetailScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
-          paddingBottom: layout.isWeb ? 40 : 100
+          paddingBottom: layout.isWeb ? 40 : 20 // Tab bar için daha az padding
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -387,7 +396,7 @@ export default function ExerciseDetailScreen() {
               }} />
             </View>
 
-            {/* Question Counter */}
+            {/* Question Counter with Pass Requirement */}
             <View style={{
               backgroundColor: '#e3f2fd',
               padding: 16,
@@ -397,13 +406,22 @@ export default function ExerciseDetailScreen() {
               justifyContent: 'space-between',
               alignItems: 'center'
             }}>
-              <Text style={{
-                fontSize: 16,
-                fontWeight: '600',
-                color: '#1976d2'
-              }}>
-                Question {currentIndex + 1} of {exercises.length}
-              </Text>
+              <View>
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '600',
+                  color: '#1976d2'
+                }}>
+                  Question {currentIndex + 1} of {exercises.length}
+                </Text>
+                <Text style={{
+                  fontSize: 12,
+                  color: '#1565c0',
+                  marginTop: 2
+                }}>
+                  Need 60% to pass level
+                </Text>
+              </View>
               <View style={{
                 backgroundColor: '#4caf50',
                 paddingHorizontal: 12,
@@ -690,15 +708,15 @@ export default function ExerciseDetailScreen() {
               }}>
                 This session: {correctCount}/{currentIndex + (showResult ? 1 : 0)} correct
               </Text>
-              {result?.exercisesCompletedInLevel && result?.totalExercisesInLevel && (
-                <Text style={{
-                  fontSize: 12,
-                  color: '#666',
-                  marginTop: 2
-                }}>
-                  Level progress: {result.exercisesCompletedInLevel}/{result.totalExercisesInLevel}
-                </Text>
-              )}
+              <Text style={{
+                fontSize: 12,
+                color: Math.round((correctCount / exercises.length) * 100) >= 60 ? '#4caf50' : '#ff9800',
+                marginTop: 2,
+                fontWeight: '600'
+              }}>
+                Current: {Math.round((correctCount / Math.max(currentIndex + (showResult ? 1 : 0), 1)) * 100)}%
+                {Math.round((correctCount / exercises.length) * 100) >= 60 ? ' ✓' : ' (Need 60%)'}
+              </Text>
             </View>
           </View>
         </View>

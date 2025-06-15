@@ -1,4 +1,4 @@
-// app/(tabs)/exercises.tsx - Toast ile error handling
+// app/(tabs)/exercises.tsx - Fixed level unlocking logic
 
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Animated } from 'react-native';
@@ -202,7 +202,7 @@ export default function ExercisesScreen() {
   const layout = useResponsiveLayout();
 
   // URL parametrelerini al
-  const { selectedCategory: urlSelectedCategory } = useLocalSearchParams();
+  const { selectedCategory: urlSelectedCategory, refresh } = useLocalSearchParams();
 
   const [progress, setProgress] = useState<Progress | null>(null);
   const [loading, setLoading] = useState(false);
@@ -232,11 +232,7 @@ export default function ExercisesScreen() {
     setToast(prev => ({ ...prev, visible: false }));
   };
 
-  // Backend URL
-
-
- const API_BASE_URL = CONFIG.API_BASE_URL;
-
+  const API_BASE_URL = CONFIG.API_BASE_URL;
 
   const categories = [
     {
@@ -245,7 +241,7 @@ export default function ExercisesScreen() {
       icon: 'book-outline',
       color: '#4caf50',
       description: 'Learn new words and meanings',
-      availableLevels: [1, 2, 3] // Level 3 eklendi
+      availableLevels: [1, 2, 3]
     },
     {
       id: 'grammar',
@@ -253,7 +249,7 @@ export default function ExercisesScreen() {
       icon: 'school-outline',
       color: '#ff9800',
       description: 'Practice grammar rules',
-      availableLevels: [1, 2, 3] // Level 2 ve 3 eklendi
+      availableLevels: [1, 2, 3]
     },
     {
       id: 'filltheblanks',
@@ -261,7 +257,7 @@ export default function ExercisesScreen() {
       icon: 'text-outline',
       color: '#2196f3',
       description: 'Complete sentences with missing words',
-      availableLevels: [1, 2, 3] // Level 3 eklendi
+      availableLevels: [1, 2, 3]
     },
     {
       id: 'sentences',
@@ -269,7 +265,7 @@ export default function ExercisesScreen() {
       icon: 'chatbubble-outline',
       color: '#9c27b0',
       description: 'Build and understand sentences',
-      availableLevels: [1, 2] // Level 2 eklendi
+      availableLevels: [1, 2]
     },
     {
       id: 'imagebased',
@@ -277,7 +273,7 @@ export default function ExercisesScreen() {
       icon: 'image-outline',
       color: '#f44336',
       description: 'Learn with visual context',
-      availableLevels: [1, 2] // Level 2 eklendi
+      availableLevels: [1, 2]
     }
   ];
 
@@ -289,12 +285,12 @@ export default function ExercisesScreen() {
     }
   }, [urlSelectedCategory]);
 
-  // Progress'i yükle
+  // Progress'i yükle - refresh parametresi değiştiğinde de yeniden yükle
   useEffect(() => {
     if (user && targetLang && selectedCategory) {
       loadProgress();
     }
-  }, [user, targetLang, selectedCategory]);
+  }, [user, targetLang, selectedCategory, refresh]);
 
   // Auth guard
   useEffect(() => {
@@ -375,7 +371,7 @@ export default function ExercisesScreen() {
         console.log('🔧 Using mock data for development');
         setProgress({
           currentLevel: 1,
-          unlockedLevels: [1, 2],
+          unlockedLevels: [1],
           totalScore: 0,
           completedLevels: [],
           completedExercises: 0
@@ -396,6 +392,29 @@ export default function ExercisesScreen() {
     }
   };
 
+  // İyileştirilmiş level unlocking logic
+  const isLevelUnlocked = (level: number): boolean => {
+    if (!progress) return false;
+
+    // Level 1 her zaman unlocked
+    if (level === 1) return true;
+
+    // Diğer leveller için: önceki level tamamlanmış olmalı
+    const previousLevel = level - 1;
+    const isPreviousLevelCompleted = progress.completedLevels.some(
+      (completedLevel: any) => completedLevel.level === previousLevel
+    );
+
+    console.log(`🔓 Level ${level} unlock check:`, {
+      previousLevel,
+      isPreviousLevelCompleted,
+      completedLevels: progress.completedLevels,
+      unlockedLevels: progress.unlockedLevels
+    });
+
+    return isPreviousLevelCompleted;
+  };
+
   const handleLevelSelect = async (level: number) => {
     console.log(`🎯 Level ${level} selected for category ${selectedCategory}`);
 
@@ -414,10 +433,19 @@ export default function ExercisesScreen() {
       return;
     }
 
-    if (!progress || !progress.unlockedLevels.includes(level)) {
+    // İyileştirilmiş unlock kontrolü
+    if (!isLevelUnlocked(level)) {
+      const previousLevel = level - 1;
       showToast(
-        `Level ${level} is locked. Complete Level ${level - 1} to unlock it!`,
-        'warning'
+        `Level ${level} is locked! Complete Level ${previousLevel} first to unlock it.`,
+        'warning',
+        `Go to Level ${previousLevel}`,
+        () => {
+          if (isLevelUnlocked(previousLevel)) {
+            handleLevelSelect(previousLevel);
+          }
+          hideToast();
+        }
       );
       return;
     }
@@ -572,9 +600,6 @@ export default function ExercisesScreen() {
           </View>
 
           <View style={{ paddingHorizontal: layout.isWeb ? 0 : 20 }}>
-
-
-
             {/* Language Info */}
             <View style={{
               backgroundColor: '#e8f5e8',
@@ -771,8 +796,8 @@ export default function ExercisesScreen() {
                   gap: 12
                 }}>
                   {Array.from({ length: 10 }, (_, i) => i + 1).map((level) => {
-                    const isUnlocked = progress.unlockedLevels.includes(level);
-                    const isCompleted = progress.completedLevels.some(cl => cl.level === level);
+                    const isUnlocked = isLevelUnlocked(level);
+                    const isCompleted = progress.completedLevels.some((cl: any) => cl.level === level);
                     const isCurrent = progress.currentLevel === level;
                     const isAvailable = currentCategory?.availableLevels.includes(level) || false;
 
@@ -856,6 +881,26 @@ export default function ExercisesScreen() {
                               fontWeight: '600'
                             }}>
                               SOON
+                            </Text>
+                          </View>
+                        )}
+
+                        {!isUnlocked && isAvailable && level > 1 && (
+                          <View style={{
+                            position: 'absolute',
+                            top: -2,
+                            right: -2,
+                            backgroundColor: '#f44336',
+                            borderRadius: 8,
+                            paddingHorizontal: 4,
+                            paddingVertical: 2
+                          }}>
+                            <Text style={{
+                              color: '#fff',
+                              fontSize: 8,
+                              fontWeight: '600'
+                            }}>
+                              LOCKED
                             </Text>
                           </View>
                         )}
@@ -949,10 +994,36 @@ export default function ExercisesScreen() {
                       {currentCategory?.availableLevels.length} of 10 levels available • More coming soon!
                     </Text>
                   </View>
+
+                  {/* Level Unlock Help */}
+                  <View style={{
+                    backgroundColor: '#e3f2fd',
+                    borderRadius: 12,
+                    padding: 12,
+                    marginTop: 12,
+                    borderLeftWidth: 4,
+                    borderLeftColor: '#2196f3'
+                  }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                      <Ionicons name="information-circle-outline" size={16} color="#1976d2" />
+                      <Text style={{
+                        fontSize: 14,
+                        color: '#1976d2',
+                        fontWeight: '600',
+                        marginLeft: 6
+                      }}>
+                        How to unlock levels
+                      </Text>
+                    </View>
+                    <Text style={{
+                      fontSize: 12,
+                      color: '#1565c0',
+                      lineHeight: 16
+                    }}>
+                      Complete each level to unlock the next one!
+                    </Text>
+                  </View>
                 </View>
-
-
-
               </>
             ) : (
               <View style={{ alignItems: 'center', padding: 40 }}>

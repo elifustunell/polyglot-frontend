@@ -1,4 +1,5 @@
-// app/language-selection.tsx - Protected language selection
+// app/language-selection.tsx - Real-time name updates ile düzeltilmiş
+
 import React, { useEffect, useState } from 'react';
 import { View, Text, TouchableOpacity, Image, ScrollView, ActivityIndicator } from 'react-native';
 import { Colors, GlobalStyles } from '@/constants/Theme';
@@ -8,7 +9,7 @@ import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import { getFlagImage } from '@/utils/helpers';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 
 export default function LanguageSelectionScreen() {
     const router = useRouter();
@@ -16,6 +17,9 @@ export default function LanguageSelectionScreen() {
     const { user, loading } = useAuth();
     const layout = useResponsiveLayout();
     const [isMounted, setIsMounted] = useState(false);
+
+    // Real-time user name - will update when user changes name in profile
+    const [userName, setUserName] = useState(user?.displayName || user?.email?.split('@')[0] || 'User');
 
     // Component mount tracking
     useEffect(() => {
@@ -29,6 +33,26 @@ export default function LanguageSelectionScreen() {
             router.replace('/');
         }
     }, [user, loading, isMounted, router]);
+
+    // Update user name when user object changes (real-time sync)
+    useEffect(() => {
+        if (user) {
+            const newName = user.displayName || user.email?.split('@')[0] || 'User';
+            setUserName(newName);
+            console.log('👤 User name updated in Language Selection:', newName);
+        }
+    }, [user?.displayName, user?.email]);
+
+    // Refresh user data when screen focuses
+    useFocusEffect(
+        React.useCallback(() => {
+            if (user) {
+                const newName = user.displayName || user.email?.split('@')[0] || 'User';
+                setUserName(newName);
+                console.log('🔄 Language Selection screen focused, refreshing user name:', newName);
+            }
+        }, [user])
+    );
 
     // Loading state
     if (loading || !isMounted) {
@@ -143,7 +167,7 @@ export default function LanguageSelectionScreen() {
                     </View>
 
                     <View style={{ paddingHorizontal: layout.isWeb ? 0 : 20 }}>
-                        {/* Welcome Message */}
+                        {/* Welcome Message with Real-time Name */}
                         <View style={{
                             backgroundColor: '#e8f5e8',
                             borderRadius: 16,
@@ -159,7 +183,7 @@ export default function LanguageSelectionScreen() {
                                 textAlign: 'center',
                                 marginBottom: 8
                             }}>
-                                Welcome, {user.name || user.email?.split('@')[0]}! 🎉
+                                Welcome, {userName}! 🎉
                             </Text>
                             <Text style={{
                                 fontSize: 14,
@@ -274,7 +298,37 @@ export default function LanguageSelectionScreen() {
 
 
 
-
+                        {/* Learning Tips */}
+                        <View style={{
+                            backgroundColor: '#e3f2fd',
+                            borderRadius: 12,
+                            padding: 16,
+                            marginTop: 16,
+                            borderLeftWidth: 4,
+                            borderLeftColor: '#2196f3'
+                        }}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                <Ionicons name="lightbulb-outline" size={20} color="#1976d2" />
+                                <Text style={{
+                                    fontSize: 16,
+                                    fontWeight: '600',
+                                    color: '#1565c0',
+                                    marginLeft: 8
+                                }}>
+                                    Learning Tips
+                                </Text>
+                            </View>
+                            <Text style={{
+                                fontSize: 14,
+                                color: '#1565c0',
+                                lineHeight: 20
+                            }}>
+                                • Practice daily for 10-15 minutes for best results{'\n'}
+                                • Complete at least 60% of exercises to unlock new levels{'\n'}
+                                • Use different categories to improve various skills{'\n'}
+                                • Track your progress in the Profile section
+                            </Text>
+                        </View>
                     </View>
                 </View>
             </ScrollView>

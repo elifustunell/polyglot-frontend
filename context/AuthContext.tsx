@@ -1,4 +1,4 @@
-// context/AuthContext.tsx - Better error handling ile güncellenmiş
+// context/AuthContext.tsx - Mevcut bağlantıları koruyarak isim güncelleme eklendi
 
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
@@ -8,7 +8,11 @@ import {
   signOut,
   onAuthStateChanged,
   updateProfile,
-  sendPasswordResetEmail
+  sendPasswordResetEmail,
+  updateEmail,
+  updatePassword,
+  reauthenticateWithCredential,
+  EmailAuthProvider
 } from 'firebase/auth';
 import { auth } from '../config/firebase';
 
@@ -20,6 +24,12 @@ interface AuthContextType {
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   getFirebaseToken: () => Promise<string | null>;
+  // YENİ EKLENENLER - Mevcut kodları bozmayacak
+  updateDisplayName: (newName: string) => Promise<void>;
+  updateUserProfile: (profileData: { displayName?: string; photoURL?: string }) => Promise<void>;
+  updateUserEmail: (newEmail: string, currentPassword: string) => Promise<void>;
+  updateUserPassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -36,6 +46,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       if (firebaseUser) {
         console.log('✅ User authenticated:', firebaseUser.email);
+        console.log('👤 Display Name:', firebaseUser.displayName);
         setUser(firebaseUser);
       } else {
         console.log('❌ No user authenticated');
@@ -234,6 +245,219 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // YENİ: İsim güncelleme işlevi (mevcut kodlarla uyumlu)
+  const updateDisplayName = async (newName: string): Promise<void> => {
+    try {
+      if (!user) {
+        throw new Error('No user is currently logged in.');
+      }
+
+      if (!newName.trim()) {
+        throw new Error('Name cannot be empty.');
+      }
+
+      console.log('✏️ Updating display name to:', newName);
+      setLoading(true);
+
+      await updateProfile(user, {
+        displayName: newName.trim()
+      });
+
+      // Force refresh user data to get updated profile
+      await user.reload();
+
+      console.log('✅ Display name updated successfully to:', newName);
+
+      // Trigger a state update by manually setting the user
+      // This ensures UI components get the updated displayName immediately
+      setUser({ ...user });
+
+    } catch (error: any) {
+      console.error('❌ Update display name error:', error);
+      setLoading(false);
+
+      let friendlyError = new Error('Failed to update name. Please try again.');
+
+      switch (error.code) {
+        case 'auth/network-request-failed':
+          friendlyError = new Error('Network error. Please check your internet connection.');
+          break;
+        case 'auth/too-many-requests':
+          friendlyError = new Error('Too many requests. Please wait before trying again.');
+          break;
+        default:
+          friendlyError.message = error.message || 'An unexpected error occurred while updating your name.';
+      }
+
+      throw friendlyError;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // YENİ: Genel profil güncelleme işlevi (profile.tsx için)
+  const updateUserProfile = async (profileData: { displayName?: string; photoURL?: string }): Promise<void> => {
+    try {
+      if (!user) {
+        throw new Error('No user is currently logged in.');
+      }
+
+      console.log('🔄 Updating user profile:', profileData);
+      setLoading(true);
+
+      await updateProfile(user, profileData);
+
+      // Force refresh user data to get updated profile
+      await user.reload();
+
+      console.log('✅ User profile updated successfully');
+
+      // Trigger a state update to ensure all components get updated data
+      setUser({ ...user });
+
+    } catch (error: any) {
+      console.error('❌ Update profile error:', error);
+      setLoading(false);
+
+      let friendlyError = new Error('Failed to update profile. Please try again.');
+
+      switch (error.code) {
+        case 'auth/network-request-failed':
+          friendlyError = new Error('Network error. Please check your internet connection.');
+          break;
+        case 'auth/too-many-requests':
+          friendlyError = new Error('Too many requests. Please wait before trying again.');
+          break;
+        default:
+          friendlyError.message = error.message || 'An unexpected error occurred while updating your profile.';
+      }
+
+      throw friendlyError;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // YENİ: Email güncelleme işlevi (re-authentication gerektirir)
+  const updateUserEmail = async (newEmail: string, currentPassword: string): Promise<void> => {
+    try {
+      if (!user || !user.email) {
+        throw new Error('No user is currently logged in.');
+      }
+
+      console.log('📧 Updating email from', user.email, 'to', newEmail);
+      setLoading(true);
+
+      // Re-authenticate user first
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      console.log('✅ Re-authentication successful');
+
+      // Update email
+      await updateEmail(user, newEmail);
+      console.log('✅ Email updated successfully to:', newEmail);
+
+    } catch (error: any) {
+      console.error('❌ Update email error:', error);
+      setLoading(false);
+
+      let friendlyError = new Error('Failed to update email. Please try again.');
+
+      switch (error.code) {
+        case 'auth/wrong-password':
+          friendlyError = new Error('Current password is incorrect.');
+          break;
+        case 'auth/email-already-in-use':
+          friendlyError = new Error('This email is already in use by another account.');
+          break;
+        case 'auth/invalid-email':
+          friendlyError = new Error('Invalid email address format.');
+          break;
+        case 'auth/requires-recent-login':
+          friendlyError = new Error('Please log out and log back in before changing your email.');
+          break;
+        case 'auth/network-request-failed':
+          friendlyError = new Error('Network error. Please check your internet connection.');
+          break;
+        default:
+          friendlyError.message = error.message || 'An unexpected error occurred while updating your email.';
+      }
+
+      throw friendlyError;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // YENİ: Şifre güncelleme işlevi (re-authentication gerektirir)
+  const updateUserPassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+    try {
+      if (!user || !user.email) {
+        throw new Error('No user is currently logged in.');
+      }
+
+      console.log('🔐 Updating password for:', user.email);
+      setLoading(true);
+
+      // Re-authenticate user first
+      const credential = EmailAuthProvider.credential(user.email, currentPassword);
+      await reauthenticateWithCredential(user, credential);
+      console.log('✅ Re-authentication successful');
+
+      // Update password
+      await updatePassword(user, newPassword);
+      console.log('✅ Password updated successfully');
+
+    } catch (error: any) {
+      console.error('❌ Update password error:', error);
+      setLoading(false);
+
+      let friendlyError = new Error('Failed to update password. Please try again.');
+
+      switch (error.code) {
+        case 'auth/wrong-password':
+          friendlyError = new Error('Current password is incorrect.');
+          break;
+        case 'auth/weak-password':
+          friendlyError = new Error('New password is too weak. Please choose a stronger password.');
+          break;
+        case 'auth/requires-recent-login':
+          friendlyError = new Error('Please log out and log back in before changing your password.');
+          break;
+        case 'auth/network-request-failed':
+          friendlyError = new Error('Network error. Please check your internet connection.');
+          break;
+        default:
+          friendlyError.message = error.message || 'An unexpected error occurred while updating your password.';
+      }
+
+      throw friendlyError;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // YENİ: Kullanıcı verilerini yenileme işlevi (real-time sync için)
+  const refreshUser = async (): Promise<void> => {
+    try {
+      if (!user) {
+        console.log('⚠️ No user to refresh');
+        return;
+      }
+
+      console.log('🔄 Refreshing user data...');
+      await user.reload();
+
+      // Force state update to trigger re-render with fresh data across all components
+      setUser({ ...user });
+
+      console.log('✅ User data refreshed and synced across app');
+    } catch (error) {
+      console.error('❌ Failed to refresh user data:', error);
+      // Don't throw error for refresh failure, it's not critical
+    }
+  };
+
   const value: AuthContextType = {
     user,
     loading,
@@ -241,7 +465,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     register,
     logout,
     resetPassword,
-    getFirebaseToken
+    getFirebaseToken,
+    // YENİ işlevler - mevcut kodları bozmayacak
+    updateDisplayName,
+    updateUserProfile,
+    updateUserEmail,
+    updateUserPassword,
+    refreshUser
   };
 
   return (
