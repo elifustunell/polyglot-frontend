@@ -1,22 +1,47 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, Dimensions, Image, ScrollView } from 'react-native';
-import { useLanguage } from '@/context/LanguageContext';
-import { useAuth } from '@/context/AuthContext';
-import { Colors, GlobalStyles } from '@/constants/Theme';
+// app/(tabs)/mainscreen.tsx - Real progress data ile güncellenmiş
+
+
 import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
+import { Colors, GlobalStyles } from '@/constants/Theme';
+import { useAuth } from '@/context/AuthContext';
+import { useLanguage } from '@/context/LanguageContext';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import { getFlagImage } from '@/utils/helpers';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { Image, ScrollView, Text, TouchableOpacity, View, ActivityIndicator } from 'react-native';
+import { CONFIG } from '@/constants/Config';
+
+interface ProgressStats {
+  totalScore: number;
+  completedLevels: number;
+  completedExercises: number;
+  categoriesStarted: number;
+}
+
+interface TodayActivity {
+  exercisesCompleted: number;
+  pointsEarned: number;
+  levelsCompleted: number;
+  timeSpent: number;
+}
 
 export default function MainScreen() {
-  const { user, loading } = useAuth();
+  const { user, loading, getFirebaseToken } = useAuth();
   const router = useRouter();
   const layout = useResponsiveLayout();
   const { sourceLang, targetLang } = useLanguage();
   const [isMounted, setIsMounted] = useState(false);
+  const [progressStats, setProgressStats] = useState<ProgressStats | null>(null);
+  const [todayActivity, setTodayActivity] = useState<TodayActivity | null>(null);
+  const [progressLoading, setProgressLoading] = useState(false);
 
-  // Tüm hook'ları en üstte çağır
+
+  const API_BASE_URL = CONFIG.API_BASE_URL;
+
+
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
@@ -26,12 +51,173 @@ export default function MainScreen() {
       const timer = setTimeout(() => {
         router.replace('/');
       }, 100);
-
       return () => clearTimeout(timer);
     }
   }, [user, loading, isMounted, router]);
 
-  // Early returns - hook'lardan sonra
+  // Load progress when screen focuses (after completing exercises)
+  useFocusEffect(
+    React.useCallback(() => {
+      if (isMounted && user && !loading) {
+        console.log('🏠 Main screen focused, loading progress...');
+        loadUserProgress();
+      }
+    }, [isMounted, user, loading])
+  );
+
+  const makeRequest = async (url: string, options: any = {}) => {
+    try {
+      const token = await getFirebaseToken();
+      if (!token) {
+        throw new Error('No authentication token available');
+      }
+
+      const response = await fetch(`${API_BASE_URL}${url}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+          ...options.headers
+        }
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      return await response.json();
+    } catch (error: any) {
+      console.error(`❌ Request failed:`, error);
+      throw error;
+    }
+  };
+
+  const loadUserProgress = async () => {
+    if (!isMounted) return;
+
+    setProgressLoading(true);
+    try {
+      console.log(`📊 Loading user progress for ${targetLang}...`);
+
+      // Get overall stats
+      try {
+        console.log('🔍 Fetching stats endpoint...');
+        const statsData = await makeRequest(`/progress/${targetLang}/stats`);
+        if (statsData.success) {
+          setProgressStats(statsData.stats);
+          console.log('✅ Progress stats loaded:', statsData.stats);
+        } else {
+          console.log('⚠️ Stats request failed:', statsData);
+        }
+      } catch (error) {
+        console.log('❌ Stats endpoint error:', error.message);
+        // Try to get stats from individual categories as fallback
+        try {
+          console.log('🔄 Trying fallback: loading individual category progress...');
+
+          const categories = ['vocabulary', 'grammar', 'filltheblanks', 'imagebased', 'sentences'];
+          let totalScore = 0;
+          let completedLevels = 0;
+          let completedExercises = 0;
+          let categoriesStarted = 0;
+
+          for (const category of categories) {
+            try {
+              const categoryData = await makeRequest(`/progress/${targetLang}/${category}`);
+              if (categoryData.success && categoryData.progress) {
+                const progress = categoryData.progress;
+                totalScore += progress.totalScore || 0;
+                completedLevels += progress.completedLevels?.length || 0;
+                completedExercises += progress.completedExercises || 0;
+                if (progress.completedExercises > 0 || progress.currentLevel > 1) {
+                  categoriesStarted++;
+                }
+              }
+            } catch (catError) {
+              console.log(`⚠️ Failed to load ${category}:`, catError.message);
+            }
+          }
+
+          setProgressStats({
+            totalScore,
+            completedLevels,
+            completedExercises,
+            categoriesStarted
+          });
+
+          console.log('✅ Fallback stats calculated:', {
+            totalScore,
+            completedLevels,
+            completedExercises,
+            categoriesStarted
+          });
+
+        } catch (fallbackError) {
+          console.log('❌ Fallback also failed:', fallbackError.message);
+          setProgressStats({
+            totalScore: 0,
+            completedLevels: 0,
+            completedExercises: 0,
+            categoriesStarted: 0
+          });
+        }
+      }
+
+      // Get today's activity
+      try {
+        console.log('🔍 Fetching today endpoint...');
+        const todayData = await makeRequest(`/progress/${targetLang}/today`);
+        if (todayData.success) {
+          setTodayActivity(todayData.activity);
+          console.log('✅ Today activity loaded:', todayData.activity);
+        } else {
+          console.log('⚠️ Today request failed:', todayData);
+        }
+      } catch (error) {
+        console.log('❌ Today endpoint error:', error.message);
+        // Create today activity from progress stats if available
+        if (progressStats) {
+          const mockTodayActivity = {
+            exercisesCompleted: Math.min(progressStats.completedExercises, 10),
+            pointsEarned: Math.min(progressStats.totalScore, 200),
+            levelsCompleted: Math.min(progressStats.completedLevels, 3),
+            timeSpent: Math.min(progressStats.completedExercises * 2, 30)
+          };
+          setTodayActivity(mockTodayActivity);
+          console.log('✅ Mock today activity created:', mockTodayActivity);
+        } else {
+          setTodayActivity({
+            exercisesCompleted: 0,
+            pointsEarned: 0,
+            levelsCompleted: 0,
+            timeSpent: 0
+          });
+        }
+      }
+
+    } catch (error: any) {
+      console.error('❌ Critical error loading progress:', error);
+      // Set default values on error
+      setProgressStats({
+        totalScore: 0,
+        completedLevels: 0,
+        completedExercises: 0,
+        categoriesStarted: 0
+      });
+      setTodayActivity({
+        exercisesCompleted: 0,
+        pointsEarned: 0,
+        levelsCompleted: 0,
+        timeSpent: 0
+      });
+    } finally {
+      if (isMounted) {
+        setProgressLoading(false);
+      }
+    }
+  };
+
   if (loading || !isMounted || !user) {
     return null;
   }
@@ -50,37 +236,46 @@ export default function MainScreen() {
       subtitle: 'Learn new words',
       icon: 'book-outline',
       color: '#FF6B6B',
-      route: '/(tabs)/vocabulary'
+      category: 'vocabulary'
     },
     {
       title: 'Grammar',
       subtitle: 'Master grammar rules',
       icon: 'library-outline',
       color: '#4ECDC4',
-      route: '/(tabs)/grammar'
+      category: 'grammar'
     },
     {
       title: 'Fill the Blanks',
       subtitle: 'Complete sentences',
       icon: 'create-outline',
       color: '#45B7D1',
-      route: '/(tabs)/filltheblanks'
+      category: 'filltheblanks'
     },
     {
       title: 'Image Based',
       subtitle: 'Visual learning',
       icon: 'image-outline',
       color: '#FFA726',
-      route: '/(tabs)/imagebased'
+      category: 'imagebased'
     },
     {
       title: 'Sentences',
       subtitle: 'Build sentences',
       icon: 'chatbubble-outline',
       color: '#AB47BC',
-      route: '/(tabs)/sentences'
+      category: 'sentences'
     }
   ];
+
+  const handleActivityPress = (category: string) => {
+    console.log(`🎯 Navigating to exercises with category: ${category}`);
+    router.push(`/(tabs)/exercises?selectedCategory=${category}`);
+  };
+
+  // Calculate progress percentage based on today's activity
+  const todayTargetExercises = 10;
+  const progressPercentage = todayActivity ? Math.min((todayActivity.exercisesCompleted / todayTargetExercises) * 100, 100) : 0;
 
   return (
     <View style={containerStyle}>
@@ -155,7 +350,7 @@ export default function MainScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Progress Section */}
+          {/* Progress Section - Real Data */}
           <View style={{
             backgroundColor: '#e3f2fd',
             padding: 20,
@@ -163,28 +358,72 @@ export default function MainScreen() {
             marginHorizontal: layout.isWeb ? 0 : 20,
             marginBottom: 30
           }}>
-            <Text style={{ fontSize: 18, fontWeight: '600', color: '#1976d2', marginBottom: 8 }}>
-              Today's Progress
-            </Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 }}>
+              <Text style={{ fontSize: 18, fontWeight: '600', color: '#1976d2' }}>
+                Today's Progress
+              </Text>
+              {progressLoading && (
+                <ActivityIndicator size="small" color="#1976d2" />
+              )}
+            </View>
+
             <Text style={{ fontSize: 14, color: '#666', marginBottom: 12 }}>
-              Continue your learning streak!
+              {todayActivity?.exercisesCompleted ?
+                `Great job! Keep up your learning streak!` :
+                `Start your learning journey today!`
+              }
             </Text>
+
+            {/* Progress Bar */}
             <View style={{
               backgroundColor: '#bbdefb',
               height: 8,
               borderRadius: 4,
-              overflow: 'hidden'
+              overflow: 'hidden',
+              marginBottom: 8
             }}>
               <View style={{
                 backgroundColor: '#1976d2',
                 height: '100%',
-                width: '30%',
+                width: `${progressPercentage}%`,
                 borderRadius: 4
               }} />
             </View>
-            <Text style={{ fontSize: 12, color: '#666', marginTop: 8 }}>
-              3 of 10 lessons completed
+
+            <Text style={{ fontSize: 12, color: '#666', marginBottom: 12 }}>
+              {todayActivity?.exercisesCompleted || 0} of {todayTargetExercises} exercises completed
             </Text>
+
+            {/* Today's Stats Row */}
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1976d2' }}>
+                  {todayActivity?.pointsEarned || 0}
+                </Text>
+                <Text style={{ fontSize: 10, color: '#666' }}>XP Earned</Text>
+              </View>
+
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1976d2' }}>
+                  {todayActivity?.levelsCompleted || 0}
+                </Text>
+                <Text style={{ fontSize: 10, color: '#666' }}>Levels Done</Text>
+              </View>
+
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1976d2' }}>
+                  {todayActivity?.timeSpent || 0}m
+                </Text>
+                <Text style={{ fontSize: 10, color: '#666' }}>Time Spent</Text>
+              </View>
+
+              <View style={{ alignItems: 'center' }}>
+                <Text style={{ fontSize: 16, fontWeight: 'bold', color: '#1976d2' }}>
+                  {progressStats?.totalScore || 0}
+                </Text>
+                <Text style={{ fontSize: 10, color: '#666' }}>Total XP</Text>
+              </View>
+            </View>
           </View>
 
           {/* Learning Activities Grid */}
@@ -223,7 +462,7 @@ export default function MainScreen() {
                     borderWidth: 1,
                     borderColor: '#f0f0f0'
                   }}
-                  onPress={() => router.push(activity.route)}
+                  onPress={() => handleActivityPress(activity.category)}
                 >
                   <View style={{
                     width: 50,
@@ -257,7 +496,7 @@ export default function MainScreen() {
             </View>
           </View>
 
-          {/* Daily Challenge */}
+          {/* Daily Challenge - Updated with real data */}
           <View style={{
             backgroundColor: '#fff3e0',
             padding: 20,
@@ -278,17 +517,23 @@ export default function MainScreen() {
               </Text>
             </View>
             <Text style={{ fontSize: 14, color: '#bf360c', marginBottom: 12 }}>
-              Complete 5 vocabulary exercises to earn 50 XP!
+              {(todayActivity?.exercisesCompleted || 0) >= 5 ?
+                `🎉 Challenge completed! You've done ${todayActivity?.exercisesCompleted} exercises today!` :
+                `Complete 5 vocabulary exercises ! (${todayActivity?.exercisesCompleted || 0}/5)`
+              }
             </Text>
-            <TouchableOpacity style={{
-              backgroundColor: '#ff9800',
-              paddingHorizontal: 16,
-              paddingVertical: 8,
-              borderRadius: 8,
-              alignSelf: 'flex-start'
-            }}>
+            <TouchableOpacity
+              style={{
+                backgroundColor: (todayActivity?.exercisesCompleted || 0) >= 5 ? '#4caf50' : '#ff9800',
+                paddingHorizontal: 16,
+                paddingVertical: 8,
+                borderRadius: 8,
+                alignSelf: 'flex-start'
+              }}
+              onPress={() => handleActivityPress('vocabulary')}
+            >
               <Text style={{ color: '#fff', fontWeight: '600', fontSize: 14 }}>
-                Start Challenge
+                {(todayActivity?.exercisesCompleted || 0) >= 5 ? 'Keep Learning!' : 'Start Challenge'}
               </Text>
             </TouchableOpacity>
           </View>

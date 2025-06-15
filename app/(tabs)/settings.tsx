@@ -1,12 +1,277 @@
+// app/(tabs)/settings.tsx - Toast bildirimleri ve düzeltilmiş logout ile
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, Switch, Alert, ScrollView } from 'react-native';
+import { View, Text, TouchableOpacity, Switch, ScrollView, ActivityIndicator, Animated } from 'react-native';
 import { useLanguage } from '@/context/LanguageContext';
 import { useAuth } from '@/context/AuthContext';
 import { Colors, GlobalStyles } from '@/constants/Theme';
 import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { router, useRouter } from 'expo-router';
+import { useRouter } from 'expo-router';
+
+// Toast Component
+const Toast = ({ message, type = 'info', visible, onHide }: {
+  message: string;
+  type: 'success' | 'error' | 'warning' | 'info';
+  visible: boolean;
+  onHide: () => void;
+}) => {
+  const translateY = new Animated.Value(-100);
+  const opacity = new Animated.Value(0);
+
+  const getToastColor = () => {
+    switch (type) {
+      case 'success': return '#4caf50';
+      case 'error': return '#f44336';
+      case 'warning': return '#ff9800';
+      default: return '#2196f3';
+    }
+  };
+
+  const getToastIcon = () => {
+    switch (type) {
+      case 'success': return 'checkmark-circle';
+      case 'error': return 'close-circle';
+      case 'warning': return 'warning';
+      default: return 'information-circle';
+    }
+  };
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.parallel([
+        Animated.timing(translateY, {
+          toValue: 0,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+        Animated.timing(opacity, {
+          toValue: 1,
+          duration: 300,
+          useNativeDriver: true,
+        }),
+      ]).start();
+
+      const timer = setTimeout(() => {
+        Animated.parallel([
+          Animated.timing(translateY, {
+            toValue: -100,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+          Animated.timing(opacity, {
+            toValue: 0,
+            duration: 300,
+            useNativeDriver: true,
+          }),
+        ]).start(() => onHide());
+      }, 3000);
+
+      return () => clearTimeout(timer);
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: 50,
+        left: 20,
+        right: 20,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 16,
+        flexDirection: 'row',
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 12,
+        elevation: 8,
+        zIndex: 1000,
+        borderLeftWidth: 4,
+        borderLeftColor: getToastColor(),
+        transform: [{ translateY }],
+        opacity,
+      }}
+    >
+      <View style={{
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: getToastColor() + '20',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+      }}>
+        <Ionicons
+          name={getToastIcon()}
+          size={20}
+          color={getToastColor()}
+        />
+      </View>
+
+      <Text style={{
+        flex: 1,
+        fontSize: 16,
+        color: '#333',
+        fontWeight: '500',
+        lineHeight: 22,
+      }}>
+        {message}
+      </Text>
+
+      <TouchableOpacity
+        onPress={onHide}
+        style={{
+          padding: 4,
+          marginLeft: 8,
+        }}
+      >
+        <Ionicons name="close" size={18} color="#666" />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
+
+// Logout Confirmation Modal Component
+const LogoutModal = ({ visible, onConfirm, onCancel, loading }: {
+  visible: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
+  loading: boolean;
+}) => {
+  const opacity = new Animated.Value(0);
+
+  React.useEffect(() => {
+    if (visible) {
+      Animated.timing(opacity, {
+        toValue: 1,
+        duration: 200,
+        useNativeDriver: true,
+      }).start();
+    }
+  }, [visible]);
+
+  if (!visible) return null;
+
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 1001,
+        opacity,
+      }}
+    >
+      <View style={{
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 24,
+        margin: 20,
+        minWidth: 280,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.25,
+        shadowRadius: 16,
+        elevation: 12,
+      }}>
+        <View style={{ alignItems: 'center', marginBottom: 20 }}>
+          <View style={{
+            width: 60,
+            height: 60,
+            borderRadius: 30,
+            backgroundColor: '#fff3e0',
+            justifyContent: 'center',
+            alignItems: 'center',
+            marginBottom: 16,
+          }}>
+            <Ionicons name="log-out-outline" size={28} color="#ff9800" />
+          </View>
+
+          <Text style={{
+            fontSize: 20,
+            fontWeight: '600',
+            color: '#333',
+            marginBottom: 8,
+            textAlign: 'center',
+          }}>
+            Logout Confirmation
+          </Text>
+
+          <Text style={{
+            fontSize: 16,
+            color: '#666',
+            textAlign: 'center',
+            lineHeight: 22,
+          }}>
+            Are you sure you want to logout? You will need to sign in again next time.
+          </Text>
+        </View>
+
+        <View style={{
+          flexDirection: 'row',
+          gap: 12,
+        }}>
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              backgroundColor: '#f5f5f5',
+              padding: 14,
+              borderRadius: 12,
+              alignItems: 'center',
+            }}
+            onPress={onCancel}
+            disabled={loading}
+          >
+            <Text style={{
+              fontSize: 16,
+              fontWeight: '600',
+              color: '#666',
+            }}>
+              Cancel
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={{
+              flex: 1,
+              backgroundColor: loading ? '#ffccbc' : '#ff5722',
+              padding: 14,
+              borderRadius: 12,
+              alignItems: 'center',
+              flexDirection: 'row',
+              justifyContent: 'center',
+            }}
+            onPress={onConfirm}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator size="small" color="#fff" style={{ marginRight: 8 }} />
+            ) : (
+              <Ionicons name="log-out-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+            )}
+            <Text style={{
+              fontSize: 16,
+              fontWeight: '600',
+              color: '#fff',
+            }}>
+              {loading ? 'Logging out...' : 'Logout'}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Animated.View>
+  );
+};
 
 export default function SettingsScreen() {
   const { sourceLang, targetLang } = useLanguage();
@@ -16,46 +281,119 @@ export default function SettingsScreen() {
   const [pushNotifications, setPushNotifications] = useState(true);
   const [darkMode, setDarkMode] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
-  // Tüm hook'ları en üstte çağır
+  // Toast state
+  const [toast, setToast] = useState<{
+    visible: boolean;
+    message: string;
+    type: 'success' | 'error' | 'warning' | 'info';
+  }>({
+    visible: false,
+    message: '',
+    type: 'info'
+  });
+
+  const showToast = (message: string, type: 'success' | 'error' | 'warning' | 'info' = 'info') => {
+    setToast({ visible: true, message, type });
+  };
+
+  const hideToast = () => {
+    setToast(prev => ({ ...prev, visible: false }));
+  };
+
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
   useEffect(() => {
     if (!loading && !user && isMounted) {
+      console.log('🚪 User logged out, redirecting to welcome screen');
+      showToast('Successfully logged out. See you next time!', 'success');
+
       const timer = setTimeout(() => {
-        router.replace('/');
-      }, 100);
+
+        router.replace('/login');
+      }, 1500);
 
       return () => clearTimeout(timer);
     }
   }, [user, loading, isMounted, router]);
 
   // Early returns - hook'lardan sonra
-  if (loading || !isMounted || !user) {
+  if (loading || !isMounted) {
+    return (
+      <View style={{
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#f5f5f5'
+      }}>
+        <ActivityIndicator size="large" color={Colors.primary} />
+        <Text style={{
+          marginTop: 16,
+          fontSize: 16,
+          color: '#666'
+        }}>
+          Loading...
+        </Text>
+      </View>
+    );
+  }
+
+  if (!user) {
     return null;
   }
 
-  const handleLogout = async () => {
-    Alert.alert(
-      'Logout',
-      'Are you sure you want to logout?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Logout',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await logout();
-              router.replace('/');
-            } catch (error) {
-              console.error('Logout error:', error);
-            }
-          }
-        }
-      ]
+  const handleLogoutPress = () => {
+    setShowLogoutModal(true);
+  };
+
+  const handleLogoutConfirm = async () => {
+    setIsLoggingOut(true);
+    try {
+      console.log('🚪 Logout confirmed, calling logout...');
+      await logout();
+      console.log('✅ Logout completed successfully');
+      setShowLogoutModal(false);
+
+      // Hemen yönlendir, eğer useEffect çalışmazsa
+      showToast('Successfully logged out. See you next time!', 'success');
+
+      setTimeout(() => {
+        console.log('🔄 Force redirecting to welcome screen...');
+
+        router.replace('/login');
+      }, 1000);
+
+    } catch (error: any) {
+      console.error('❌ Logout error in settings:', error);
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
+
+      const errorMessage = error.message || 'Failed to logout. Please try again.';
+      showToast(errorMessage, 'error');
+    }
+  };
+
+  const handleLogoutCancel = () => {
+    setShowLogoutModal(false);
+  };
+
+  const handleNotificationToggle = (value: boolean) => {
+    setPushNotifications(value);
+    showToast(
+      value ? 'Push notifications enabled' : 'Push notifications disabled',
+      'info'
+    );
+  };
+
+  const handleDarkModeToggle = (value: boolean) => {
+    setDarkMode(value);
+    showToast(
+      value ? 'Dark mode enabled' : 'Dark mode disabled',
+      'info'
     );
   };
 
@@ -69,6 +407,20 @@ export default function SettingsScreen() {
 
   return (
     <View style={containerStyle}>
+      <Toast
+        message={toast.message}
+        type={toast.type}
+        visible={toast.visible}
+        onHide={hideToast}
+      />
+
+      <LogoutModal
+        visible={showLogoutModal}
+        onConfirm={handleLogoutConfirm}
+        onCancel={handleLogoutCancel}
+        loading={isLoggingOut}
+      />
+
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
@@ -129,7 +481,7 @@ export default function SettingsScreen() {
                   color: Colors.text,
                   marginBottom: 4
                 }}>
-                  {user?.email?.split('@')[0] || 'User'}
+                  {user?.name || user?.email?.split('@')[0] || 'User'}
                 </Text>
                 <Text style={{
                   fontSize: 14,
@@ -146,7 +498,7 @@ export default function SettingsScreen() {
                   marginTop: 4
                 }}>
                   <Text style={{ color: '#fff', fontSize: 12, fontWeight: '500' }}>
-                    Active
+                    Active Session
                   </Text>
                 </View>
               </View>
@@ -211,7 +563,7 @@ export default function SettingsScreen() {
                     color: '#666',
                     marginTop: 2
                   }}>
-                    {sourceLang?.toUpperCase()} → {targetLang?.toUpperCase()}
+                    {sourceLang} → {targetLang}
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#ccc" />
@@ -306,7 +658,7 @@ export default function SettingsScreen() {
                   </Text>
                   <Switch
                     value={pushNotifications}
-                    onValueChange={setPushNotifications}
+                    onValueChange={handleNotificationToggle}
                     trackColor={{ false: '#767577', true: Colors.primary + '40' }}
                     thumbColor={pushNotifications ? Colors.primary : '#f4f3f4'}
                   />
@@ -338,7 +690,7 @@ export default function SettingsScreen() {
                   </Text>
                   <Switch
                     value={darkMode}
-                    onValueChange={setDarkMode}
+                    onValueChange={handleDarkModeToggle}
                     trackColor={{ false: '#767577', true: Colors.primary + '40' }}
                     thumbColor={darkMode ? Colors.primary : '#f4f3f4'}
                   />
@@ -379,6 +731,7 @@ export default function SettingsScreen() {
                       borderBottomWidth: index < array.length - 1 ? 1 : 0,
                       borderBottomColor: '#f0f0f0'
                     }}
+                    onPress={() => showToast(`Opening ${item.title}...`, 'info')}
                   >
                     <View style={{
                       width: 40,
@@ -418,7 +771,7 @@ export default function SettingsScreen() {
                 borderWidth: 2,
                 borderColor: '#ff3b30'
               }}
-              onPress={handleLogout}
+              onPress={handleLogoutPress}
             >
               <Ionicons name="log-out-outline" size={20} color="#ff3b30" />
               <Text style={{
@@ -430,6 +783,34 @@ export default function SettingsScreen() {
                 Logout
               </Text>
             </TouchableOpacity>
+
+            {/* App Info */}
+            <View style={{
+              backgroundColor: '#f0f8ff',
+              borderRadius: 12,
+              padding: 16,
+              borderLeftWidth: 4,
+              borderLeftColor: '#2196f3'
+            }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                <Ionicons name="information-circle-outline" size={20} color="#1976d2" />
+                <Text style={{
+                  fontSize: 16,
+                  fontWeight: '600',
+                  color: '#1565c0',
+                  marginLeft: 8
+                }}>
+                  PolyGlotPal v1.0.0
+                </Text>
+              </View>
+              <Text style={{
+                fontSize: 14,
+                color: '#1565c0',
+                lineHeight: 20
+              }}>
+                Your personalized language learning companion. Keep practicing and achieve fluency faster!
+              </Text>
+            </View>
           </View>
         </View>
       </ScrollView>

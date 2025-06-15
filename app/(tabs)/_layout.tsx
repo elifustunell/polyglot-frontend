@@ -1,3 +1,4 @@
+// app/(tabs)/_layout.tsx - Cleaned version
 import { HapticTab } from '@/components/HapticTab';
 import { IconSymbol } from '@/components/ui/IconSymbol';
 import TabBarBackground from '@/components/ui/TabBarBackground';
@@ -14,11 +15,12 @@ export default function TabLayout() {
   const router = useRouter();
   const [isMounted, setIsMounted] = useState(false);
 
-  // Tüm hook'ları component'in en üstünde çağır
+  // Component mount tracking
   useEffect(() => {
     setIsMounted(true);
   }, []);
 
+  // Auth guard - redirect to welcome if not authenticated
   useEffect(() => {
     if (!loading && !user && isMounted) {
       const timer = setTimeout(() => {
@@ -29,7 +31,7 @@ export default function TabLayout() {
     }
   }, [user, loading, isMounted, router]);
 
-  // Early returns - hook'lardan sonra
+  // Loading state
   if (loading || !isMounted) {
     return (
       <View style={{
@@ -43,6 +45,7 @@ export default function TabLayout() {
     );
   }
 
+  // Not authenticated
   if (!user) {
     return null;
   }
@@ -61,14 +64,17 @@ export default function TabLayout() {
           default: {},
         }),
       }}>
+
+      {/* Main navigation tabs */}
       <Tabs.Screen
         name="index"
         options={{
           title: 'Welcome',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="house.fill" color={color} />,
-          href: null
+          href: null // Hidden from tab bar
         }}
       />
+
       <Tabs.Screen
         name="mainscreen"
         options={{
@@ -76,6 +82,15 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="book.fill" color={color} />,
         }}
       />
+
+      <Tabs.Screen
+        name="exercises"
+        options={{
+          title: 'Exercises',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="gamecontroller.fill" color={color} />,
+        }}
+      />
+
       <Tabs.Screen
         name="settings"
         options={{
@@ -83,12 +98,23 @@ export default function TabLayout() {
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="gear" color={color} />,
         }}
       />
-      <Tabs.Screen name="profile" options={{ href: null }} />
-      <Tabs.Screen name="filltheblanks" options={{ href: null }} />
-      <Tabs.Screen name="grammar" options={{ href: null }} />
-      <Tabs.Screen name="imagebased" options={{ href: null }} />
-      <Tabs.Screen name="vocabulary" options={{ href: null }} />
-      <Tabs.Screen name="sentences" options={{ href: null }} />
+
+      {/* Hidden screens - accessible via navigation but not in tab bar */}
+      <Tabs.Screen
+        name="exercise-detail"
+        options={{
+          href: null,
+          title: 'Exercise'
+        }}
+      />
+
+      <Tabs.Screen
+        name="profile"
+        options={{
+          href: null,
+          title: 'Profile'
+        }}
+      />
     </Tabs>
   );
 }

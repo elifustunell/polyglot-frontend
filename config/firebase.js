@@ -1,5 +1,6 @@
+// config/firebase.js - Firebase persistence'ı kapat
 import { initializeApp, getApps } from 'firebase/app';
-import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
+import { getAuth, initializeAuth, browserSessionPersistence, inMemoryPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { Platform } from 'react-native';
 
@@ -21,19 +22,20 @@ if (getApps().length === 0) {
   app = getApps()[0];
 }
 
-// Initialize Auth
+// Initialize Auth - SESSION ONLY (No persistence)
 let auth;
 try {
   if (Platform.OS === 'web') {
-    // Web için getAuth kullan
+    // Web için session persistence (sadece tab açık olduğu sürece)
     auth = getAuth(app);
+    auth.setPersistence(browserSessionPersistence);
   } else {
-    // React Native için AsyncStorage ile birlikte initialize et
-    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    // React Native için in-memory persistence (sadece app açık olduğu sürece)
     auth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage)
+      persistence: inMemoryPersistence
     });
   }
+  console.log('🔥 Firebase Auth initialized with SESSION-ONLY persistence');
 } catch (error) {
   // Eğer auth zaten initialize edilmişse, mevcut instance'ı kullan
   console.log('Auth already initialized, using existing instance');

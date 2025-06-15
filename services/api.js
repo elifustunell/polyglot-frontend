@@ -1,10 +1,13 @@
 // services/api.js
 import { auth } from '../config/firebase';
 
-// Local development için IP adresinizi kontrol edin
+
+import Constants from 'expo-constants';
+
 const API_BASE_URL = __DEV__
-  ? 'http://192.168.1.102:3000/api'  // Geliştirme
-  : 'https://yourapi.com/api';        // Production
+  ? process.env.EXPO_PUBLIC_API_URL
+  : Constants.expoConfig?.extra?.apiUrl;
+
 
 class ApiService {
   // Token al

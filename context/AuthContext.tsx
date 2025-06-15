@@ -1,31 +1,25 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Platform } from 'react-native';
+// context/AuthContext.tsx - Better error handling ile güncellenmiş
 
-// Sadece gerekli Firebase fonksiyonlarını import et
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import {
+  User,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
-  sendPasswordResetEmail,
-  User as FirebaseUser
+  updateProfile,
+  sendPasswordResetEmail
 } from 'firebase/auth';
-
 import { auth } from '../config/firebase';
-
-interface User {
-  email: string;
-  uid: string;
-  name?: string;
-}
 
 interface AuthContextType {
   user: User | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, name: string) => Promise<void>;
+  register: (email: string, password: string, name?: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
+  getFirebaseToken: () => Promise<string | null>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,160 +28,230 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Firebase auth state listener
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser: FirebaseUser | null) => {
-      try {
-        if (firebaseUser) {
-          const userData = {
-            email: firebaseUser.email!,
-            uid: firebaseUser.uid,
-            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0]
-          };
-          setUser(userData);
-        } else {
-          setUser(null);
-        }
-      } catch (error) {
-        console.error('Auth state change error:', error);
+    console.log('🔥 Setting up Firebase auth listener...');
+
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      console.log('🔥 Auth state changed:', firebaseUser ? 'User logged in' : 'No user');
+
+      if (firebaseUser) {
+        console.log('✅ User authenticated:', firebaseUser.email);
+        setUser(firebaseUser);
+      } else {
+        console.log('❌ No user authenticated');
         setUser(null);
-      } finally {
-        setLoading(false);
       }
+
+      setLoading(false);
     });
 
-    return unsubscribe;
+    return () => {
+      console.log('🔥 Cleaning up auth listener');
+      unsubscribe();
+    };
   }, []);
 
-  const login = async (email: string, password: string) => {
-    setLoading(true);
+  const login = async (email: string, password: string): Promise<void> => {
     try {
+      console.log('🔐 Attempting login with:', email);
+      setLoading(true);
+
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
+      console.log('✅ Login successful for:', userCredential.user.email);
 
-      const userData = {
-        email: firebaseUser.email!,
-        uid: firebaseUser.uid,
-        name: firebaseUser.displayName || firebaseUser.email?.split('@')[0]
-      };
-
-      setUser(userData);
+      // User state will be updated by onAuthStateChanged
     } catch (error: any) {
-      console.error('Login error:', error);
-      setUser(null);
+      console.error('❌ Login error:', error);
 
-      let errorMessage = 'Login failed';
+      // Transform Firebase errors to user-friendly messages
+      let friendlyError = new Error('Login failed. Please try again.');
+
       switch (error.code) {
         case 'auth/user-not-found':
-          errorMessage = 'No account found with this email';
+          friendlyError = new Error('No account found with this email address.');
+          friendlyError.code = 'auth/user-not-found';
           break;
         case 'auth/wrong-password':
-          errorMessage = 'Incorrect password';
+          friendlyError = new Error('Incorrect password. Please try again.');
+          friendlyError.code = 'auth/wrong-password';
           break;
         case 'auth/invalid-email':
-          errorMessage = 'Invalid email address';
+          friendlyError = new Error('Invalid email address format.');
+          friendlyError.code = 'auth/invalid-email';
+          break;
+        case 'auth/user-disabled':
+          friendlyError = new Error('This account has been disabled.');
+          friendlyError.code = 'auth/user-disabled';
           break;
         case 'auth/too-many-requests':
-          errorMessage = 'Too many failed attempts. Please try again later';
+          friendlyError = new Error('Too many failed attempts. Please wait before trying again.');
+          friendlyError.code = 'auth/too-many-requests';
+          break;
+        case 'auth/network-request-failed':
+          friendlyError = new Error('Network error. Please check your internet connection.');
+          friendlyError.code = 'auth/network-request-failed';
+          break;
+        case 'auth/invalid-credential':
+          friendlyError = new Error('Invalid email or password. Please check your credentials.');
+          friendlyError.code = 'auth/invalid-credential';
           break;
         default:
-          errorMessage = error.message || 'Login failed';
+          friendlyError.message = error.message || 'An unexpected error occurred during login.';
+          friendlyError.code = error.code;
       }
 
-      throw new Error(errorMessage);
-    } finally {
       setLoading(false);
+      throw friendlyError;
     }
   };
 
-  const register = async (email: string, password: string, name: string) => {
-    setLoading(true);
+  const register = async (email: string, password: string, name?: string): Promise<void> => {
     try {
+      console.log('👤 Attempting registration with:', email);
+      setLoading(true);
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const firebaseUser = userCredential.user;
+      console.log('✅ Registration successful for:', userCredential.user.email);
 
-      const userData = {
-        email: firebaseUser.email!,
-        uid: firebaseUser.uid,
-        name: name
-      };
+      // Update user profile with display name if provided
+      if (name && userCredential.user) {
+        try {
+          await updateProfile(userCredential.user, {
+            displayName: name
+          });
+          console.log('✅ Profile updated with name:', name);
+        } catch (profileError) {
+          console.log('⚠️ Failed to update profile name:', profileError);
+          // Don't throw error for profile update failure
+        }
+      }
 
-      setUser(userData);
+      // User state will be updated by onAuthStateChanged
     } catch (error: any) {
-      console.error('Registration error:', error);
-      setUser(null);
+      console.error('❌ Registration error:', error);
 
-      let errorMessage = 'Registration failed';
+      // Transform Firebase errors to user-friendly messages
+      let friendlyError = new Error('Registration failed. Please try again.');
+
       switch (error.code) {
         case 'auth/email-already-in-use':
-          errorMessage = 'An account with this email already exists';
+          friendlyError = new Error('An account with this email already exists. Please use a different email or try logging in.');
+          friendlyError.code = 'auth/email-already-in-use';
           break;
         case 'auth/invalid-email':
-          errorMessage = 'Invalid email address';
+          friendlyError = new Error('Invalid email address format.');
+          friendlyError.code = 'auth/invalid-email';
+          break;
+        case 'auth/operation-not-allowed':
+          friendlyError = new Error('Email/password registration is currently disabled. Please contact support.');
+          friendlyError.code = 'auth/operation-not-allowed';
           break;
         case 'auth/weak-password':
-          errorMessage = 'Password should be at least 6 characters';
+          friendlyError = new Error('Password is too weak. Please choose a stronger password.');
+          friendlyError.code = 'auth/weak-password';
+          break;
+        case 'auth/network-request-failed':
+          friendlyError = new Error('Network error. Please check your internet connection.');
+          friendlyError.code = 'auth/network-request-failed';
+          break;
+        case 'auth/too-many-requests':
+          friendlyError = new Error('Too many registration attempts. Please wait before trying again.');
+          friendlyError.code = 'auth/too-many-requests';
           break;
         default:
-          errorMessage = error.message || 'Registration failed';
+          friendlyError.message = error.message || 'An unexpected error occurred during registration.';
+          friendlyError.code = error.code;
       }
 
-      throw new Error(errorMessage);
-    } finally {
       setLoading(false);
+      throw friendlyError;
     }
   };
 
-  const logout = async () => {
-    setLoading(true);
+  const logout = async (): Promise<void> => {
     try {
+      console.log('🚪 Attempting logout...');
+      setLoading(true);
+
       await signOut(auth);
-      setUser(null);
+      console.log('✅ Logout successful');
+
+      // User state will be updated by onAuthStateChanged
     } catch (error: any) {
-      console.error('Logout error:', error);
-      throw new Error(error.message || 'Logout failed');
-    } finally {
+      console.error('❌ Logout error:', error);
       setLoading(false);
+      throw new Error('Failed to logout. Please try again.');
     }
   };
 
-  const resetPassword = async (email: string) => {
+  const resetPassword = async (email: string): Promise<void> => {
     try {
-      await sendPasswordResetEmail(auth, email);
-    } catch (error: any) {
-      console.error('Password reset error:', error);
+      console.log('📧 Sending password reset email to:', email);
 
-      let errorMessage = 'Password reset failed';
+      await sendPasswordResetEmail(auth, email);
+      console.log('✅ Password reset email sent successfully');
+
+    } catch (error: any) {
+      console.error('❌ Password reset error:', error);
+
+      // Transform Firebase errors to user-friendly messages
+      let friendlyError = new Error('Failed to send password reset email. Please try again.');
+
       switch (error.code) {
         case 'auth/user-not-found':
-          errorMessage = 'No account found with this email';
+          friendlyError = new Error('No account found with this email address.');
           break;
         case 'auth/invalid-email':
-          errorMessage = 'Invalid email address';
+          friendlyError = new Error('Invalid email address format.');
+          break;
+        case 'auth/too-many-requests':
+          friendlyError = new Error('Too many requests. Please wait before trying again.');
+          break;
+        case 'auth/network-request-failed':
+          friendlyError = new Error('Network error. Please check your internet connection.');
           break;
         default:
-          errorMessage = error.message || 'Password reset failed';
+          friendlyError.message = error.message || 'An unexpected error occurred.';
       }
 
-      throw new Error(errorMessage);
+      throw friendlyError;
     }
+  };
+
+  const getFirebaseToken = async (): Promise<string | null> => {
+    try {
+      if (!user) {
+        console.log('⚠️ No user available for token');
+        return null;
+      }
+
+      const token = await user.getIdToken();
+      console.log('🔑 Firebase token obtained successfully');
+      return token;
+    } catch (error) {
+      console.error('❌ Failed to get Firebase token:', error);
+      return null;
+    }
+  };
+
+  const value: AuthContextType = {
+    user,
+    loading,
+    login,
+    register,
+    logout,
+    resetPassword,
+    getFirebaseToken
   };
 
   return (
-    <AuthContext.Provider value={{
-      user,
-      loading,
-      login,
-      register,
-      logout,
-      resetPassword
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
 }
 
-export function useAuth() {
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
   if (context === undefined) {
     throw new Error('useAuth must be used within an AuthProvider');

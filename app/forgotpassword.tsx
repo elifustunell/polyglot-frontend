@@ -1,3 +1,4 @@
+// app/forgotpassword.tsx - Düzeltilmiş forgot password
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, TextInput, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { Colors } from '@/constants/Theme';
@@ -13,13 +14,13 @@ export default function ForgotPasswordScreen() {
   const [emailSent, setEmailSent] = useState(false);
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, resetPassword } = useAuth();
   const layout = useResponsiveLayout();
 
   // Eğer kullanıcı zaten giriş yapmışsa yönlendir
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace('/(tabs)/mainscreen');
+      router.replace('/language-selection');
     }
   }, [user, authLoading]);
 
@@ -32,7 +33,7 @@ export default function ForgotPasswordScreen() {
         alignItems: 'center',
         backgroundColor: '#f5f5f5'
       }}>
-        <ActivityIndicator size="large" color="#007AFF" />
+        <ActivityIndicator size="large" color={Colors.primary} />
         <Text style={{
           marginTop: 16,
           fontSize: 16,
@@ -62,15 +63,15 @@ export default function ForgotPasswordScreen() {
 
     setLoading(true);
     try {
-      // AuthContext'ten resetPassword fonksiyonunu kullan
-      // const { resetPassword } = useAuth();
-      // await resetPassword(email);
-
-      // Mock implementation
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      await resetPassword(email);
       setEmailSent(true);
+      Alert.alert(
+        'Email Sent!',
+        'Password reset instructions have been sent to your email address.',
+        [{ text: 'OK' }]
+      );
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Failed to send reset email');
+      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -143,7 +144,7 @@ export default function ForgotPasswordScreen() {
                   textAlign: 'center',
                   lineHeight: 24
                 }}>
-                  Enter your email address and we'll send you a link to reset your password.
+                  Enter your email address and we'll send you instructions to reset your password.
                 </Text>
               </View>
 
@@ -187,18 +188,30 @@ export default function ForgotPasswordScreen() {
                   padding: 16,
                   borderRadius: 8,
                   alignItems: 'center',
-                  marginBottom: 24
+                  marginBottom: 24,
+                  shadowColor: Colors.primary,
+                  shadowOffset: { width: 0, height: 4 },
+                  shadowOpacity: 0.3,
+                  shadowRadius: 8,
+                  elevation: 6
                 }}
                 onPress={handleForgotPassword}
                 disabled={loading}
               >
-                <Text style={layout.isWeb ? ResponsiveStyles.webButtonText : {
-                  color: '#fff',
-                  fontSize: layout.fontSize.medium,
-                  fontWeight: '600'
-                }}>
-                  {loading ? 'Sending...' : 'Send Reset Email'}
-                </Text>
+                {loading ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Ionicons name="mail-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={layout.isWeb ? ResponsiveStyles.webButtonText : {
+                      color: '#fff',
+                      fontSize: layout.fontSize.medium,
+                      fontWeight: '600'
+                    }}>
+                      Send Reset Email
+                    </Text>
+                  </View>
+                )}
               </TouchableOpacity>
             </>
           ) : (
@@ -233,7 +246,7 @@ export default function ForgotPasswordScreen() {
                 lineHeight: 24,
                 marginBottom: 32
               }}>
-                We've sent a password reset link to{'\n'}
+                We've sent password reset instructions to{'\n'}
                 <Text style={{ fontWeight: '600', color: Colors.primary }}>
                   {email}
                 </Text>
@@ -249,13 +262,16 @@ export default function ForgotPasswordScreen() {
                 }}
                 onPress={() => router.push('/login')}
               >
-                <Text style={layout.isWeb ? ResponsiveStyles.webButtonText : {
-                  color: '#fff',
-                  fontSize: layout.fontSize.medium,
-                  fontWeight: '600'
-                }}>
-                  Back to Login
-                </Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons name="arrow-back" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={layout.isWeb ? ResponsiveStyles.webButtonText : {
+                    color: '#fff',
+                    fontSize: layout.fontSize.medium,
+                    fontWeight: '600'
+                  }}>
+                    Back to Login
+                  </Text>
+                </View>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -291,6 +307,41 @@ export default function ForgotPasswordScreen() {
               </Text>
             </Text>
           )}
+
+          {/* Additional Help */}
+          <View style={{
+            backgroundColor: '#e3f2fd',
+            borderRadius: 12,
+            padding: 16,
+            marginTop: 24,
+            borderLeft: '4px solid #2196f3'
+          }}>
+            <View style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              marginBottom: 8
+            }}>
+              <Ionicons name="help-circle-outline" size={20} color="#1976d2" />
+              <Text style={{
+                fontSize: 16,
+                fontWeight: '600',
+                color: '#1565c0',
+                marginLeft: 8
+              }}>
+                Need Help?
+              </Text>
+            </View>
+            <Text style={{
+              fontSize: 14,
+              color: '#1565c0',
+              lineHeight: 20
+            }}>
+              • Check your spam/junk folder{'\n'}
+              • Make sure you entered the correct email{'\n'}
+              • It may take a few minutes to receive the email{'\n'}
+              • If you still don't receive it, try again or contact support
+            </Text>
+          </View>
         </View>
       </ScrollView>
     </View>

@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
-import { View, Text, TouchableOpacity, Image, ScrollView, Dimensions } from 'react-native';
+// app/language-selection.tsx - Protected language selection
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, Image, ScrollView, ActivityIndicator } from 'react-native';
 import { Colors, GlobalStyles } from '@/constants/Theme';
 import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
@@ -12,10 +13,53 @@ import { useRouter } from 'expo-router';
 export default function LanguageSelectionScreen() {
     const router = useRouter();
     const { setLanguages } = useLanguage();
-    const { user } = useAuth();
+    const { user, loading } = useAuth();
     const layout = useResponsiveLayout();
+    const [isMounted, setIsMounted] = useState(false);
+
+    // Component mount tracking
+    useEffect(() => {
+        setIsMounted(true);
+    }, []);
+
+    // Auth guard - sadece giriş yapmış kullanıcılar görebilir
+    useEffect(() => {
+        if (isMounted && !loading && !user) {
+            console.log('❌ No user found in language selection, redirecting to welcome');
+            router.replace('/');
+        }
+    }, [user, loading, isMounted, router]);
+
+    // Loading state
+    if (loading || !isMounted) {
+        return (
+            <View style={{
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+                backgroundColor: '#f5f5f5'
+            }}>
+                <ActivityIndicator size="large" color={Colors.primary} />
+                <Text style={{
+                    marginTop: 16,
+                    fontSize: 16,
+                    color: '#666'
+                }}>
+                    Loading...
+                </Text>
+            </View>
+        );
+    }
+
+    // User yoksa null return (yönlendirilecek)
+    if (!user) {
+        return null;
+    }
+
+    console.log('✅ User found in language selection:', user.email);
 
     const handleLanguageSelect = (sourceLang: string, targetLang: string) => {
+        console.log('🌍 Language selected:', sourceLang, '->', targetLang);
         setLanguages(sourceLang, targetLang);
         router.replace('/(tabs)/mainscreen');
     }
@@ -31,8 +75,8 @@ export default function LanguageSelectionScreen() {
     const languagePairs = [
         {
             id: 'tr-eng',
-            source: 'tr',
-            target: 'eng',
+            source: 'Turkish',
+            target: 'English',
             title: 'Turkish to English',
             subtitle: 'Learn English from Turkish',
             color: '#e3f2fd',
@@ -40,8 +84,8 @@ export default function LanguageSelectionScreen() {
         },
         {
             id: 'eng-tr',
-            source: 'eng',
-            target: 'tr',
+            source: 'English',
+            target: 'Turkish',
             title: 'English to Turkish',
             subtitle: 'Learn Turkish from English',
             color: '#f3e5f5',
@@ -49,8 +93,8 @@ export default function LanguageSelectionScreen() {
         },
         {
             id: 'eng-gr',
-            source: 'eng',
-            target: 'gr',
+            source: 'English',
+            target: 'German',
             title: 'English to German',
             subtitle: 'Learn German from English',
             color: '#fff3e0',
@@ -58,14 +102,13 @@ export default function LanguageSelectionScreen() {
         },
         {
             id: 'eng-spn',
-            source: 'eng',
-            target: 'spn',
+            source: 'English',
+            target: 'Spanish',
             title: 'English to Spanish',
             subtitle: 'Learn Spanish from English',
             color: '#e8f5e8',
             borderColor: '#4caf50'
         },
-
     ];
 
     return (
@@ -91,39 +134,36 @@ export default function LanguageSelectionScreen() {
                         ]}>
                             Choose Your Language
                         </Text>
-                        {user && (
-                            <TouchableOpacity
-                                style={GlobalStyles.settingsButton}
-                                onPress={() => router.push('/(tabs)/settings')}
-                            >
-                                <Ionicons name="settings-outline" size={24} color="#666" />
-                            </TouchableOpacity>
-                        )}
-                        {!user && <View style={{ width: 24 }} />}
+                        <TouchableOpacity
+                            style={GlobalStyles.settingsButton}
+                            onPress={() => router.push('/(tabs)/settings')}
+                        >
+                            <Ionicons name="settings-outline" size={24} color="#666" />
+                        </TouchableOpacity>
                     </View>
 
                     <View style={{ paddingHorizontal: layout.isWeb ? 0 : 20 }}>
                         {/* Welcome Message */}
                         <View style={{
-                            backgroundColor: '#f8f9fa',
+                            backgroundColor: '#e8f5e8',
                             borderRadius: 16,
                             padding: 20,
                             marginBottom: 30,
                             alignItems: 'center'
                         }}>
-                            <Ionicons name="globe-outline" size={48} color={Colors.primary} style={{ marginBottom: 12 }} />
+                            <Ionicons name="person-circle-outline" size={48} color="#4caf50" style={{ marginBottom: 12 }} />
                             <Text style={{
                                 fontSize: 20,
                                 fontWeight: '600',
-                                color: Colors.text,
+                                color: '#2e7d32',
                                 textAlign: 'center',
                                 marginBottom: 8
                             }}>
-                                Welcome to PolyGlotPal! 🎉
+                                Welcome, {user.name || user.email?.split('@')[0]}! 🎉
                             </Text>
                             <Text style={{
                                 fontSize: 14,
-                                color: '#666',
+                                color: '#388e3c',
                                 textAlign: 'center',
                                 lineHeight: 20
                             }}>
@@ -231,65 +271,10 @@ export default function LanguageSelectionScreen() {
                             ))}
                         </View>
 
-                        {/* Additional Info */}
-                        <View style={{
-                            backgroundColor: '#fff3e0',
-                            borderRadius: 12,
-                            padding: 16,
-                            marginTop: 20,
-                            borderLeft: '4px solid #ff9800'
-                        }}>
-                            <View style={{
-                                flexDirection: 'row',
-                                alignItems: 'center',
-                                marginBottom: 8
-                            }}>
-                                <Ionicons name="information-circle-outline" size={20} color="#f57c00" />
-                                <Text style={{
-                                    fontSize: 16,
-                                    fontWeight: '600',
-                                    color: '#e65100',
-                                    marginLeft: 8
-                                }}>
-                                    Quick Tips
-                                </Text>
-                            </View>
-                            <Text style={{
-                                fontSize: 14,
-                                color: '#bf360c',
-                                lineHeight: 20
-                            }}>
-                                • Choose the language pair you're most motivated to learn{'\n'}
-                                • Start with your native language as the source{'\n'}
-                                • You can switch languages anytime in settings{'\n'}
-                                • Practice daily for best results! 🚀
-                            </Text>
-                        </View>
 
-                        {/* Popular Choice Badge */}
-                        <View style={{
-                            alignItems: 'center',
-                            marginTop: 24
-                        }}>
-                            <View style={{
-                                backgroundColor: '#e8f5e8',
-                                paddingHorizontal: 16,
-                                paddingVertical: 8,
-                                borderRadius: 20,
-                                flexDirection: 'row',
-                                alignItems: 'center'
-                            }}>
-                                <Ionicons name="star" size={16} color="#4caf50" />
-                                <Text style={{
-                                    fontSize: 12,
-                                    color: '#2e7d32',
-                                    fontWeight: '600',
-                                    marginLeft: 4
-                                }}>
-                                    Most Popular: English ↔ Turkish
-                                </Text>
-                            </View>
-                        </View>
+
+
+
                     </View>
                 </View>
             </ScrollView>
