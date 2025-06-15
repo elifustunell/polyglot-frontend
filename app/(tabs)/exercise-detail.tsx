@@ -156,7 +156,7 @@ export default function ExerciseDetailScreen() {
                 await handleTryAgain();
               }
             }
-            { text: 'Go Back', onPress: () => router.back() }
+
           ]
         );
       }
