@@ -10,7 +10,6 @@ import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CONFIG } from '@/constants/Config';
 import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
-
 interface Exercise {
   _id: string;
   question: string;
