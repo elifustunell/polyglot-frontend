@@ -1,7 +1,7 @@
 // app/(tabs)/exercise-detail.tsx - %60 başarı kuralı ve düzgün navigation ile
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { Colors, GlobalStyles } from '@/constants/Theme';
@@ -9,7 +9,7 @@ import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CONFIG } from '@/constants/Config';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
+
 interface Exercise {
   _id: string;
   question: string;
