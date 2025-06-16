@@ -1,7 +1,7 @@
-// app/(tabs)/exercise-detail.tsx - Tüm exercise tiplerini destekleyen unified component
+// app/(tabs)/exercise-detail.tsx - %60 başarı kuralı ve düzgün navigation ile
 
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useAuth } from '@/context/AuthContext';
 import { Colors, GlobalStyles } from '@/constants/Theme';
@@ -13,28 +13,11 @@ import { CONFIG } from '@/constants/Config';
 interface Exercise {
   _id: string;
   question: string;
-  options?: string[];
+  options: string[];
   points: number;
   order: number;
   difficulty: string;
   explanation?: string;
-  answer?: string;
-  // Category specific fields
-  dialogue?: Array<{
-    speaker: string;
-    text: string;
-    blank: boolean;
-    options?: string[];
-    correct?: string;
-  }>;
-  image?: string;
-  words?: string[];
-  scrambled?: string[];
-  hint?: string;
-  target?: string;
-  sourceWord?: string;
-  targetWord?: string;
-  matchPairs?: Array<{ source: string; target: string; id: number }>;
 }
 
 interface SubmitResult {
@@ -66,12 +49,6 @@ export default function ExerciseDetailScreen() {
   const [score, setScore] = useState(0);
   const [correctCount, setCorrectCount] = useState(0);
   const [mounted, setMounted] = useState(false);
-
-  // Category-specific states
-  const [selectedWords, setSelectedWords] = useState<string[]>([]);
-  const [availableWords, setAvailableWords] = useState<string[]>([]);
-  const [matchSelections, setMatchSelections] = useState<{ [key: number]: number }>({});
-  const [shuffledTargets, setShuffledTargets] = useState<any[]>([]);
 
   const API_BASE_URL = CONFIG.API_BASE_URL;
 
@@ -161,9 +138,6 @@ export default function ExerciseDetailScreen() {
         setResult(null);
         setCorrectCount(0);
         setScore(0);
-
-        // Initialize category-specific states
-        initializeCategoryState(data.exercises[0]);
       } else {
         throw new Error('No exercises found for this level');
       }
@@ -188,112 +162,14 @@ export default function ExerciseDetailScreen() {
     }
   };
 
-  const initializeCategoryState = (exercise: Exercise) => {
-    if (category === 'sentences' && exercise.scrambled) {
-      setAvailableWords([...exercise.scrambled]);
-      setSelectedWords([]);
-    } else if (category === 'vocabulary' && exercise.matchPairs) {
-      const shuffled = [...exercise.matchPairs].sort(() => Math.random() - 0.5);
-      setShuffledTargets(shuffled);
-      setMatchSelections({});
-    }
-  };
-
-  const resetCategoryState = () => {
-    setSelectedWords([]);
-    setAvailableWords([]);
-    setMatchSelections({});
-    setShuffledTargets([]);
-  };
-
   const handleAnswerSelect = (answer: string) => {
     if (showResult || loading) return;
     setSelectedAnswer(answer);
   };
 
-  // Fill the blanks specific handler
-  const handleFillBlanksSelect = (answer: string) => {
-    if (showResult || loading) return;
-    setSelectedAnswer(answer);
-  };
-
-  // Sentences specific handlers
-  const handleWordSelect = (word: string, fromAvailable: boolean) => {
-    if (showResult) return;
-
-    if (fromAvailable) {
-      const index = availableWords.indexOf(word);
-      if (index !== -1) {
-        const updatedAvailable = [...availableWords];
-        updatedAvailable.splice(index, 1);
-        setAvailableWords(updatedAvailable);
-        setSelectedWords(prev => [...prev, word]);
-      }
-    } else {
-      const index = selectedWords.indexOf(word);
-      if (index !== -1) {
-        const updatedSelected = [...selectedWords];
-        updatedSelected.splice(index, 1);
-        setSelectedWords(updatedSelected);
-        setAvailableWords(prev => [...prev, word]);
-      }
-    }
-  };
-
-  const clearSentence = () => {
-    const currentExercise = exercises[currentIndex];
-    if (currentExercise && currentExercise.scrambled) {
-      setAvailableWords([...currentExercise.scrambled]);
-      setSelectedWords([]);
-    }
-  };
-
-  // Vocabulary specific handlers
-  const handleVocabularyMatch = (sourceId: number, targetId: number) => {
-    if (showResult) return;
-    setMatchSelections(prev => ({ ...prev, [sourceId]: targetId }));
-  };
-
-  const getUserAnswer = () => {
-    const currentExercise = exercises[currentIndex];
-
-    switch (category) {
-      case 'filltheblanks':
-        return selectedAnswer;
-      case 'sentences':
-        return selectedWords.join(' ').trim();
-      case 'vocabulary':
-        // Return match selections as JSON string for backend
-        return JSON.stringify(matchSelections);
-      case 'grammar':
-      case 'imagebased':
-      default:
-        return selectedAnswer;
-    }
-  };
-
-  const isAnswerComplete = () => {
-    const currentExercise = exercises[currentIndex];
-
-    switch (category) {
-      case 'filltheblanks':
-      case 'grammar':
-      case 'imagebased':
-        return !!selectedAnswer;
-      case 'sentences':
-        return selectedWords.length > 0;
-      case 'vocabulary':
-        if (!currentExercise.matchPairs) return false;
-        return Object.keys(matchSelections).length === currentExercise.matchPairs.length;
-      default:
-        return false;
-    }
-  };
-
   const submitAnswer = async () => {
-    const userAnswer = getUserAnswer();
-    if (!userAnswer || !exercises[currentIndex] || !mounted) {
-      Alert.alert('Error', 'Please provide an answer');
+    if (!selectedAnswer || !exercises[currentIndex] || !mounted) {
+      Alert.alert('Error', 'Please select an answer');
       return;
     }
 
@@ -307,7 +183,7 @@ export default function ExerciseDetailScreen() {
           method: 'POST',
           body: JSON.stringify({
             exerciseId: exercise._id,
-            userAnswer: userAnswer
+            userAnswer: selectedAnswer
           })
         }
       );
@@ -349,10 +225,6 @@ export default function ExerciseDetailScreen() {
       setSelectedAnswer(null);
       setShowResult(false);
       setResult(null);
-      resetCategoryState();
-
-      // Initialize next question's category state
-      initializeCategoryState(exercises[currentIndex + 1]);
     } else {
       // All questions completed - calculate final results
       const finalCorrectCount = correctCount + (result?.isCorrect ? 1 : 0);
@@ -443,10 +315,7 @@ export default function ExerciseDetailScreen() {
                   setShowResult(false);
                   setResult(null);
                   setCorrectCount(0);
-                  resetCategoryState();
-                  if (exercises.length > 0) {
-                    initializeCategoryState(exercises[0]);
-                  }
+                  // Don't reset total score - it's cumulative
                 }
               }
             ]
@@ -481,10 +350,6 @@ export default function ExerciseDetailScreen() {
                   setShowResult(false);
                   setResult(null);
                   setCorrectCount(0);
-                  resetCategoryState();
-                  if (exercises.length > 0) {
-                    initializeCategoryState(exercises[0]);
-                  }
                 }
               }
             ]
@@ -555,787 +420,6 @@ export default function ExerciseDetailScreen() {
     }
   };
 
-  // Component render methods for different categories
-  const renderFillTheBlanksContent = (exercise: Exercise) => {
-    if (!exercise.dialogue) return null;
-
-    return (
-      <View style={{
-        backgroundColor: '#f8f9fa',
-        borderRadius: 16,
-        padding: 24,
-        marginBottom: 30
-      }}>
-        <View style={{
-          flexDirection: 'row',
-          alignItems: 'center',
-          marginBottom: 20
-        }}>
-          <Ionicons name="chatbubbles-outline" size={24} color={Colors.primary} />
-          <Text style={{
-            fontSize: 18,
-            fontWeight: '600',
-            color: Colors.primary,
-            marginLeft: 8
-          }}>
-            Conversation
-          </Text>
-        </View>
-
-        {exercise.dialogue.map((line, index) => (
-          <View key={index} style={{
-            marginBottom: 16,
-            padding: 16,
-            backgroundColor: line.speaker === 'A' ? '#e3f2fd' : '#f3e5f5',
-            borderRadius: 12,
-            borderLeft: `4px solid ${line.speaker === 'A' ? '#2196f3' : '#9c27b0'}`
-          }}>
-            <Text style={{
-              fontSize: 14,
-              fontWeight: '600',
-              color: line.speaker === 'A' ? '#1565c0' : '#7b1fa2',
-              marginBottom: 8
-            }}>
-              Speaker {line.speaker}:
-            </Text>
-
-            <Text style={{
-              fontSize: 18,
-              lineHeight: 28,
-              color: '#333'
-            }}>
-              {line.blank ? (
-                <>
-                  {line.text.split('_____')[0]}
-                  <Text style={{
-                    backgroundColor: showResult
-                      ? (selectedAnswer === line.correct ? '#c8e6c9' : '#ffcdd2')
-                      : (selectedAnswer ? '#bbdefb' : '#fff'),
-                    borderWidth: 2,
-                    borderColor: showResult
-                      ? (selectedAnswer === line.correct ? '#4caf50' : '#f44336')
-                      : (selectedAnswer ? '#2196f3' : '#e0e0e0'),
-                    paddingHorizontal: 12,
-                    paddingVertical: 4,
-                    borderRadius: 8,
-                    fontSize: 18,
-                    fontWeight: '600',
-                    color: showResult
-                      ? (selectedAnswer === line.correct ? '#2e7d32' : '#c62828')
-                      : (selectedAnswer ? '#0d47a1' : '#666'),
-                    minWidth: 80,
-                    textAlign: 'center'
-                  }}>
-                    {selectedAnswer || '_____'}
-                  </Text>
-                  {line.text.split('_____')[1]}
-                </>
-              ) : (
-                line.text
-              )}
-            </Text>
-          </View>
-        ))}
-      </View>
-    );
-  };
-
-  const renderFillTheBlanksOptions = (exercise: Exercise) => {
-    if (!exercise.dialogue) return null;
-
-    const blankLine = exercise.dialogue.find(line => line.blank);
-    if (!blankLine || !blankLine.options) return null;
-
-    return (
-      <View style={{ gap: 12, marginBottom: 30 }}>
-        <Text style={{
-          fontSize: 16,
-          fontWeight: '600',
-          color: Colors.text,
-          marginBottom: 8
-        }}>
-          Choose the correct word:
-        </Text>
-
-        {blankLine.options.map((option, index) => {
-          let buttonStyle = {
-            backgroundColor: '#fff',
-            borderWidth: 2,
-            borderColor: '#e0e0e0'
-          };
-          let textColor = '#333';
-
-          if (selectedAnswer === option) {
-            if (showResult) {
-              if (option === blankLine.correct) {
-                buttonStyle = {
-                  backgroundColor: '#c8e6c9',
-                  borderWidth: 2,
-                  borderColor: '#4caf50'
-                };
-                textColor = '#2e7d32';
-              } else {
-                buttonStyle = {
-                  backgroundColor: '#ffcdd2',
-                  borderWidth: 2,
-                  borderColor: '#f44336'
-                };
-                textColor = '#c62828';
-              }
-            } else {
-              buttonStyle = {
-                backgroundColor: '#bbdefb',
-                borderWidth: 2,
-                borderColor: '#2196f3'
-              };
-              textColor = '#0d47a1';
-            }
-          } else if (showResult && option === blankLine.correct) {
-            buttonStyle = {
-              backgroundColor: '#c8e6c9',
-              borderWidth: 2,
-              borderColor: '#4caf50'
-            };
-            textColor = '#2e7d32';
-          }
-
-          return (
-            <TouchableOpacity
-              key={index}
-              style={[
-                {
-                  padding: 16,
-                  borderRadius: 12,
-                  alignItems: 'center',
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: 4,
-                  elevation: 2,
-                  position: 'relative'
-                },
-                buttonStyle
-              ]}
-              onPress={() => handleFillBlanksSelect(option)}
-              disabled={showResult}
-            >
-              <Text style={{
-                fontSize: 18,
-                fontWeight: '600',
-                color: textColor
-              }}>
-                {option}
-              </Text>
-
-              {showResult && option === blankLine.correct && (
-                <Ionicons
-                  name="checkmark-circle"
-                  size={20}
-                  color="#4caf50"
-                  style={{ position: 'absolute', top: 8, right: 8 }}
-                />
-              )}
-
-              {showResult && selectedAnswer === option && option !== blankLine.correct && (
-                <Ionicons
-                  name="close-circle"
-                  size={20}
-                  color="#f44336"
-                  style={{ position: 'absolute', top: 8, right: 8 }}
-                />
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    );
-  };
-
-  const renderGrammarContent = (exercise: Exercise) => {
-    return (
-      <View style={{
-        backgroundColor: '#f8f9fa',
-        borderRadius: 16,
-        padding: 24,
-        marginBottom: 30,
-        alignItems: 'center'
-      }}>
-        <View style={{
-          backgroundColor: exercise.difficulty === 'easy' ? '#c8e6c9' :
-                         exercise.difficulty === 'medium' ? '#fff3e0' : '#ffcdd2',
-          paddingHorizontal: 12,
-          paddingVertical: 4,
-          borderRadius: 12,
-          marginBottom: 16
-        }}>
-          <Text style={{
-            fontSize: 12,
-            fontWeight: '600',
-            color: exercise.difficulty === 'easy' ? '#2e7d32' :
-                   exercise.difficulty === 'medium' ? '#e65100' : '#c62828'
-          }}>
-            {exercise.difficulty?.toUpperCase()} • {exercise.points} XP
-          </Text>
-        </View>
-
-        {exercise.image && (
-          <Image
-            source={{ uri: exercise.image }}
-            style={{
-              width: 150,
-              height: 150,
-              borderRadius: 12,
-              marginBottom: 16
-            }}
-            resizeMode="contain"
-          />
-        )}
-
-        <Text style={{
-          fontSize: 20,
-          fontWeight: '600',
-          color: Colors.text,
-          textAlign: 'center',
-          lineHeight: 28
-        }}>
-          {exercise.question}
-        </Text>
-      </View>
-    );
-  };
-
-  const renderImageBasedContent = (exercise: Exercise) => {
-    return (
-      <View style={{
-        backgroundColor: '#f8f9fa',
-        borderRadius: 20,
-        padding: 24,
-        marginBottom: 30,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 12,
-        elevation: 8
-      }}>
-        <View style={{
-          backgroundColor: '#fff',
-          borderRadius: 16,
-          padding: 20,
-          marginBottom: 20,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 2 },
-          shadowOpacity: 0.1,
-          shadowRadius: 8,
-          elevation: 4
-        }}>
-          {exercise.image ? (
-            <Image
-              source={{ uri: exercise.image }}
-              style={{
-                width: layout.isWeb ? 200 : 180,
-                height: layout.isWeb ? 200 : 180,
-                borderRadius: 12
-              }}
-              resizeMode="contain"
-            />
-          ) : (
-            <View
-              style={{
-                width: layout.isWeb ? 200 : 180,
-                height: layout.isWeb ? 200 : 180,
-                borderRadius: 12,
-                backgroundColor: '#eeeeee',
-                justifyContent: 'center',
-                alignItems: 'center'
-              }}
-            >
-              <Text style={{ color: '#999' }}>No image available</Text>
-            </View>
-          )}
-        </View>
-
-        <View style={{
-          backgroundColor: '#e8f5e8',
-          paddingHorizontal: 16,
-          paddingVertical: 8,
-          borderRadius: 20,
-          marginBottom: 16
-        }}>
-          <Text style={{
-            fontSize: 12,
-            color: '#2e7d32',
-            fontWeight: '600'
-          }}>
-            🔍 Study the image carefully
-          </Text>
-        </View>
-
-        <Text style={{
-          fontSize: 20,
-          fontWeight: '600',
-          color: Colors.text,
-          textAlign: 'center',
-          lineHeight: 28
-        }}>
-          {exercise.question}
-        </Text>
-      </View>
-    );
-  };
-
-  const renderSentencesContent = (exercise: Exercise) => {
-    if (!exercise.hint) return null;
-
-    return (
-      <>
-        {/* Hint */}
-        <View style={{
-          backgroundColor: '#fff3e0',
-          padding: 16,
-          borderRadius: 12,
-          marginBottom: 20,
-          borderLeft: '4px solid #ff9800'
-        }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-            <Ionicons name="bulb-outline" size={20} color="#f57c00" />
-            <Text style={{
-              fontSize: 16,
-              fontWeight: '600',
-              color: '#e65100',
-              marginLeft: 8
-            }}>
-              Hint
-            </Text>
-          </View>
-          <Text style={{
-            fontSize: 14,
-            color: '#bf360c',
-            lineHeight: 20
-          }}>
-            {exercise.hint}
-          </Text>
-        </View>
-
-        {/* Sentence Display Area */}
-        <View style={{
-          backgroundColor: '#f8f9fa',
-          borderRadius: 16,
-          padding: 20,
-          marginBottom: 24,
-          minHeight: 80,
-          justifyContent: 'center',
-          borderWidth: showResult ? 2 : 1,
-          borderColor: showResult
-            ? (selectedWords.join(' ').trim() === exercise.target?.trim() ? '#4caf50' : '#f44336')
-            : '#e0e0e0'
-        }}>
-          <View style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            marginBottom: 12
-          }}>
-            <Ionicons
-              name="create-outline"
-              size={20}
-              color={Colors.primary}
-            />
-            <Text style={{
-              fontSize: 16,
-              fontWeight: '600',
-              color: Colors.primary,
-              marginLeft: 8
-            }}>
-              Your Sentence:
-            </Text>
-
-            {selectedWords.length > 0 && (
-              <TouchableOpacity
-                onPress={clearSentence}
-                style={{ marginLeft: 'auto' }}
-                disabled={showResult}
-              >
-                <Ionicons name="refresh-outline" size={20} color="#666" />
-              </TouchableOpacity>
-            )}
-          </View>
-
-          <View style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            alignItems: 'center',
-            minHeight: 40
-          }}>
-            {selectedWords.length === 0 ? (
-              <Text style={{
-                fontSize: 16,
-                color: '#999',
-                fontStyle: 'italic'
-              }}>
-                Tap words below to build your sentence...
-              </Text>
-            ) : (
-              selectedWords.map((word, index) => (
-                <TouchableOpacity
-                  key={`selected-${index}`}
-                  style={{
-                    backgroundColor: showResult
-                      ? (selectedWords.join(' ').trim() === exercise.target?.trim() ? '#c8e6c9' : '#ffcdd2')
-                      : '#bbdefb',
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    borderRadius: 8,
-                    marginRight: 8,
-                    marginBottom: 8,
-                    borderWidth: 1,
-                    borderColor: showResult
-                      ? (selectedWords.join(' ').trim() === exercise.target?.trim() ? '#4caf50' : '#f44336')
-                      : '#2196f3'
-                  }}
-                  onPress={() => handleWordSelect(word, false)}
-                  disabled={showResult}
-                >
-                  <Text style={{
-                    fontSize: 16,
-                    color: showResult
-                      ? (selectedWords.join(' ').trim() === exercise.target?.trim() ? '#2e7d32' : '#c62828')
-                      : '#0d47a1',
-                    fontWeight: '500'
-                  }}>
-                    {word}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-
-          {showResult && (
-            <View style={{
-              marginTop: 12,
-              padding: 12,
-              backgroundColor: selectedWords.join(' ').trim() === exercise.target?.trim() ? '#e8f5e8' : '#fce4ec',
-              borderRadius: 8
-            }}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-                <Ionicons
-                  name={selectedWords.join(' ').trim() === exercise.target?.trim() ? "checkmark-circle" : "close-circle"}
-                  size={16}
-                  color={selectedWords.join(' ').trim() === exercise.target?.trim() ? '#4caf50' : '#f44336'}
-                />
-                <Text style={{
-                  fontSize: 14,
-                  fontWeight: '600',
-                  color: selectedWords.join(' ').trim() === exercise.target?.trim() ? '#2e7d32' : '#c62828',
-                  marginLeft: 4
-                }}>
-                  {selectedWords.join(' ').trim() === exercise.target?.trim() ? 'Correct!' : 'Incorrect'}
-                </Text>
-              </View>
-              <Text style={{
-                fontSize: 14,
-                color: selectedWords.join(' ').trim() === exercise.target?.trim() ? '#2e7d32' : '#c62828'
-              }}>
-                Correct answer: "{exercise.target}"
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Available Words */}
-        <View style={{
-          marginBottom: 30
-        }}>
-          <Text style={{
-            fontSize: 16,
-            fontWeight: '600',
-            color: Colors.text,
-            marginBottom: 12
-          }}>
-            Available Words:
-          </Text>
-
-          <View style={{
-            flexDirection: 'row',
-            flexWrap: 'wrap',
-            backgroundColor: '#fff',
-            borderRadius: 12,
-            padding: 16,
-            borderWidth: 1,
-            borderColor: '#e0e0e0',
-            minHeight: 60,
-            justifyContent: availableWords.length === 0 ? 'center' : 'flex-start',
-            alignItems: availableWords.length === 0 ? 'center' : 'flex-start'
-          }}>
-            {availableWords.length === 0 ? (
-              <Text style={{
-                fontSize: 14,
-                color: '#999',
-                fontStyle: 'italic'
-              }}>
-                All words used! ✨
-              </Text>
-            ) : (
-              availableWords.map((word, index) => (
-                <TouchableOpacity
-                  key={`available-${index}-${word}`}
-                  style={{
-                    backgroundColor: '#f0f0f0',
-                    paddingHorizontal: 12,
-                    paddingVertical: 8,
-                    borderRadius: 8,
-                    marginRight: 8,
-                    marginBottom: 8,
-                    borderWidth: 1,
-                    borderColor: '#ddd'
-                  }}
-                  onPress={() => handleWordSelect(word, true)}
-                  disabled={showResult}
-                >
-                  <Text style={{
-                    fontSize: 16,
-                    color: '#333',
-                    fontWeight: '500'
-                  }}>
-                    {word}
-                  </Text>
-                </TouchableOpacity>
-              ))
-            )}
-          </View>
-        </View>
-      </>
-    );
-  };
-
-  const renderVocabularyContent = (exercise: Exercise) => {
-    if (!exercise.matchPairs) return null;
-
-    return (
-      <View style={{
-        marginBottom: 30
-      }}>
-        <Text style={{
-          fontSize: 18,
-          fontWeight: '600',
-          color: '#1976d2',
-          textAlign: 'center',
-          marginBottom: 20
-        }}>
-          Match the Words
-        </Text>
-
-        <View style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between'
-        }}>
-          {/* Source words column */}
-          <View style={{ flex: 1, marginRight: 12 }}>
-            <Text style={{
-              fontSize: 16,
-              fontWeight: '600',
-              color: Colors.text,
-              marginBottom: 12,
-              textAlign: 'center'
-            }}>
-              {language === 'English' ? 'English' : 'German'}
-            </Text>
-            {exercise.matchPairs.map((item, index) => (
-              <View key={index} style={{
-                padding: 12,
-                marginVertical: 4,
-                borderRadius: 10,
-                backgroundColor: '#fff',
-                borderWidth: 2,
-                borderColor: '#ccc'
-              }}>
-                <Text style={{ fontSize: 16, textAlign: 'center' }}>{item.source}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Target words column */}
-          <View style={{ flex: 1, marginLeft: 12 }}>
-            <Text style={{
-              fontSize: 16,
-              fontWeight: '600',
-              color: Colors.text,
-              marginBottom: 12,
-              textAlign: 'center'
-            }}>
-              {language === 'English' ? 'Turkish' : 'English'}
-            </Text>
-            {shuffledTargets.map((item, index) => {
-              const selected = Object.values(matchSelections).includes(item.id);
-              const correct = showResult && matchSelections[item.id] === item.id;
-
-              return (
-                <TouchableOpacity
-                  key={index}
-                  style={{
-                    padding: 12,
-                    marginVertical: 4,
-                    borderRadius: 10,
-                    backgroundColor: showResult
-                      ? correct ? '#c8e6c9' : selected ? '#ffcdd2' : '#fff'
-                      : selected ? '#bbdefb' : '#fff',
-                    borderWidth: 2,
-                    borderColor: showResult
-                      ? correct ? '#4caf50' : selected ? '#f44336' : '#ccc'
-                      : selected ? '#2196f3' : '#ccc'
-                  }}
-                  onPress={() => {
-                    const unselectedSource = exercise.matchPairs?.find(q => !matchSelections[q.id]);
-                    if (unselectedSource) {
-                      handleVocabularyMatch(unselectedSource.id, item.id);
-                    }
-                  }}
-                  disabled={showResult || selected}
-                >
-                  <Text style={{
-                    fontSize: 16,
-                    textAlign: 'center',
-                    color: showResult && correct
-                      ? '#2e7d32'
-                      : showResult && selected
-                      ? '#c62828'
-                      : '#333'
-                  }}>
-                    {item.target}
-                  </Text>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-      </View>
-    );
-  };
-
-  const renderStandardOptions = (exercise: Exercise) => {
-    if (!exercise.options) return null;
-
-    return (
-      <View style={{ gap: 12, marginBottom: 30 }}>
-        {exercise.options.map((option, index) => {
-          let buttonStyle = {
-            backgroundColor: '#fff',
-            borderWidth: 2,
-            borderColor: '#e0e0e0'
-          };
-          let textColor = '#333';
-
-          if (selectedAnswer === option) {
-            if (showResult && result) {
-              if (option === result.correctAnswer) {
-                buttonStyle = {
-                  backgroundColor: '#c8e6c9',
-                  borderWidth: 2,
-                  borderColor: '#4caf50'
-                };
-                textColor = '#2e7d32';
-              } else {
-                buttonStyle = {
-                  backgroundColor: '#ffcdd2',
-                  borderWidth: 2,
-                  borderColor: '#f44336'
-                };
-                textColor = '#c62828';
-              }
-            } else {
-              buttonStyle = {
-                backgroundColor: '#bbdefb',
-                borderWidth: 2,
-                borderColor: '#2196f3'
-              };
-              textColor = '#0d47a1';
-            }
-          } else if (showResult && result && option === result.correctAnswer) {
-            buttonStyle = {
-              backgroundColor: '#c8e6c9',
-              borderWidth: 2,
-              borderColor: '#4caf50'
-            };
-            textColor = '#2e7d32';
-          }
-
-          return (
-            <TouchableOpacity
-              key={index}
-              style={[
-                {
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: category === 'imagebased' ? 20 : 16,
-                  borderRadius: category === 'imagebased' ? 16 : 12,
-                  shadowColor: '#000',
-                  shadowOffset: { width: 0, height: 2 },
-                  shadowOpacity: 0.1,
-                  shadowRadius: category === 'imagebased' ? 8 : 4,
-                  elevation: category === 'imagebased' ? 3 : 2,
-                  position: 'relative'
-                },
-                buttonStyle
-              ]}
-              onPress={() => handleAnswerSelect(option)}
-              disabled={showResult || loading}
-            >
-              {category === 'imagebased' && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-                  <View style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 20,
-                    backgroundColor: textColor + '20',
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                    marginRight: 16
-                  }}>
-                    <Text style={{
-                      fontSize: 18,
-                      fontWeight: 'bold',
-                      color: textColor
-                    }}>
-                      {String.fromCharCode(65 + index)}
-                    </Text>
-                  </View>
-                </View>
-              )}
-
-              <Text style={{
-                fontSize: category === 'imagebased' ? 18 : 16,
-                fontWeight: '600',
-                color: textColor,
-                textAlign: 'center',
-                flex: category === 'imagebased' ? 1 : undefined
-              }}>
-                {option}
-              </Text>
-
-              {showResult && result && option === result.correctAnswer && (
-                <Ionicons
-                  name="checkmark-circle"
-                  size={20}
-                  color="#4caf50"
-                  style={{ position: 'absolute', top: 8, right: 8 }}
-                />
-              )}
-
-              {showResult && selectedAnswer === option && result && option !== result.correctAnswer && (
-                <Ionicons
-                  name="close-circle"
-                  size={20}
-                  color="#f44336"
-                  style={{ position: 'absolute', top: 8, right: 8 }}
-                />
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    );
-  };
-
   // Loading state
   if (loading && exercises.length === 0) {
     return (
@@ -1383,7 +467,7 @@ export default function ExerciseDetailScreen() {
         style={{ flex: 1 }}
         contentContainerStyle={{
           flexGrow: 1,
-          paddingBottom: layout.isWeb ? 40 : 20
+          paddingBottom: layout.isWeb ? 40 : 20 // Tab bar için daha az padding
         }}
         showsVerticalScrollIndicator={false}
       >
@@ -1467,57 +551,140 @@ export default function ExerciseDetailScreen() {
               </View>
             </View>
 
-            {/* Category-specific Content */}
-            {category === 'filltheblanks' && renderFillTheBlanksContent(currentExercise)}
-            {category === 'grammar' && renderGrammarContent(currentExercise)}
-            {category === 'imagebased' && renderImageBasedContent(currentExercise)}
-            {category === 'sentences' && renderSentencesContent(currentExercise)}
-            {category === 'vocabulary' && renderVocabularyContent(currentExercise)}
-
-            {/* Standard question display for non-special categories */}
-            {!['filltheblanks', 'sentences', 'vocabulary'].includes(String(category)) && (
+            {/* Question */}
+            <View style={{
+              backgroundColor: '#f8f9fa',
+              borderRadius: 16,
+              padding: 24,
+              marginBottom: 30,
+              alignItems: 'center'
+            }}>
               <View style={{
-                backgroundColor: '#f8f9fa',
-                borderRadius: 16,
-                padding: 24,
-                marginBottom: 30,
-                alignItems: 'center'
+                backgroundColor: currentExercise.difficulty === 'easy' ? '#c8e6c9' :
+                               currentExercise.difficulty === 'medium' ? '#fff3e0' : '#ffcdd2',
+                paddingHorizontal: 12,
+                paddingVertical: 4,
+                borderRadius: 12,
+                marginBottom: 16
               }}>
-                <View style={{
-                  backgroundColor: currentExercise.difficulty === 'easy' ? '#c8e6c9' :
-                                 currentExercise.difficulty === 'medium' ? '#fff3e0' : '#ffcdd2',
-                  paddingHorizontal: 12,
-                  paddingVertical: 4,
-                  borderRadius: 12,
-                  marginBottom: 16
-                }}>
-                  <Text style={{
-                    fontSize: 12,
-                    fontWeight: '600',
-                    color: currentExercise.difficulty === 'easy' ? '#2e7d32' :
-                           currentExercise.difficulty === 'medium' ? '#e65100' : '#c62828'
-                  }}>
-                    {currentExercise.difficulty?.toUpperCase()} • {currentExercise.points} XP
-                  </Text>
-                </View>
-
                 <Text style={{
-                  fontSize: 20,
+                  fontSize: 12,
                   fontWeight: '600',
-                  color: Colors.text,
-                  textAlign: 'center',
-                  lineHeight: 28
+                  color: currentExercise.difficulty === 'easy' ? '#2e7d32' :
+                         currentExercise.difficulty === 'medium' ? '#e65100' : '#c62828'
                 }}>
-                  {currentExercise.question}
+                  {currentExercise.difficulty?.toUpperCase()} • {currentExercise.points} XP
                 </Text>
               </View>
-            )}
+
+              <Text style={{
+                fontSize: 20,
+                fontWeight: '600',
+                color: Colors.text,
+                textAlign: 'center',
+                lineHeight: 28
+              }}>
+                {currentExercise.question}
+              </Text>
+            </View>
 
             {/* Options */}
-            {category === 'filltheblanks' && renderFillTheBlanksOptions(currentExercise)}
-            {(['grammar', 'imagebased'].includes(String(category)) ||
-              (!['filltheblanks', 'sentences', 'vocabulary'].includes(String(category)))) &&
-              renderStandardOptions(currentExercise)}
+            <View style={{
+              gap: 12,
+              marginBottom: 30
+            }}>
+              {currentExercise.options.map((option, index) => {
+                let buttonStyle = {
+                  backgroundColor: '#fff',
+                  borderWidth: 2,
+                  borderColor: '#e0e0e0'
+                };
+                let textColor = '#333';
+
+                if (selectedAnswer === option) {
+                  if (showResult && result) {
+                    if (option === result.correctAnswer) {
+                      buttonStyle = {
+                        backgroundColor: '#c8e6c9',
+                        borderWidth: 2,
+                        borderColor: '#4caf50'
+                      };
+                      textColor = '#2e7d32';
+                    } else {
+                      buttonStyle = {
+                        backgroundColor: '#ffcdd2',
+                        borderWidth: 2,
+                        borderColor: '#f44336'
+                      };
+                      textColor = '#c62828';
+                    }
+                  } else {
+                    buttonStyle = {
+                      backgroundColor: '#bbdefb',
+                      borderWidth: 2,
+                      borderColor: '#2196f3'
+                    };
+                    textColor = '#0d47a1';
+                  }
+                } else if (showResult && result && option === result.correctAnswer) {
+                  buttonStyle = {
+                    backgroundColor: '#c8e6c9',
+                    borderWidth: 2,
+                    borderColor: '#4caf50'
+                  };
+                  textColor = '#2e7d32';
+                }
+
+                return (
+                  <TouchableOpacity
+                    key={index}
+                    style={[
+                      {
+                        padding: 16,
+                        borderRadius: 12,
+                        alignItems: 'center',
+                        shadowColor: '#000',
+                        shadowOffset: { width: 0, height: 2 },
+                        shadowOpacity: 0.1,
+                        shadowRadius: 4,
+                        elevation: 2,
+                        position: 'relative'
+                      },
+                      buttonStyle
+                    ]}
+                    onPress={() => handleAnswerSelect(option)}
+                    disabled={showResult || loading}
+                  >
+                    <Text style={{
+                      fontSize: 16,
+                      fontWeight: '600',
+                      color: textColor,
+                      textAlign: 'center'
+                    }}>
+                      {option}
+                    </Text>
+
+                    {showResult && result && option === result.correctAnswer && (
+                      <Ionicons
+                        name="checkmark-circle"
+                        size={20}
+                        color="#4caf50"
+                        style={{ position: 'absolute', top: 8, right: 8 }}
+                      />
+                    )}
+
+                    {showResult && selectedAnswer === option && result && option !== result.correctAnswer && (
+                      <Ionicons
+                        name="close-circle"
+                        size={20}
+                        color="#f44336"
+                        style={{ position: 'absolute', top: 8, right: 8 }}
+                      />
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
 
             {/* Explanation */}
             {showResult && result?.explanation && (
@@ -1550,7 +717,7 @@ export default function ExerciseDetailScreen() {
             )}
 
             {/* Result Banner */}
-            {showResult && result && category !== 'sentences' && (
+            {showResult && result && (
               <View style={{
                 backgroundColor: result.isCorrect ? '#c8e6c9' : '#ffcdd2',
                 padding: 16,
@@ -1594,10 +761,10 @@ export default function ExerciseDetailScreen() {
                 borderRadius: 12,
                 alignItems: 'center',
                 marginBottom: 20,
-                opacity: (!showResult && !isAnswerComplete()) || loading ? 0.6 : 1
+                opacity: (!showResult && !selectedAnswer) || loading ? 0.6 : 1
               }}
               onPress={showResult ? nextQuestion : submitAnswer}
-              disabled={(!showResult && !isAnswerComplete()) || loading}
+              disabled={(!showResult && !selectedAnswer) || loading}
             >
               {loading ? (
                 <ActivityIndicator size="small" color="#fff" />
