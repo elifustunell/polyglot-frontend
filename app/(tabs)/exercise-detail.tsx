@@ -9,6 +9,7 @@ import { ResponsiveStyles } from '@/constants/ResponsiveTheme';
 import { useResponsiveLayout } from '@/hooks/useResponsiveLayout';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { CONFIG } from '@/constants/Config';
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, Alert, Image } from 'react-native';
 
 interface Exercise {
   _id: string;
@@ -650,42 +651,91 @@ export default function ExerciseDetailScreen() {
               </View>
             </View>
 
-            {/* Question */}
+          {/* Question */}
+          <View style={{
+            backgroundColor: '#f8f9fa',
+            borderRadius: 16,
+            padding: 24,
+            marginBottom: 30,
+            alignItems: 'center'
+          }}>
             <View style={{
-              backgroundColor: '#f8f9fa',
-              borderRadius: 16,
-              padding: 24,
-              marginBottom: 30,
-              alignItems: 'center'
+              backgroundColor: currentExercise.difficulty === 'easy' ? '#c8e6c9' :
+                             currentExercise.difficulty === 'medium' ? '#fff3e0' : '#ffcdd2',
+              paddingHorizontal: 12,
+              paddingVertical: 4,
+              borderRadius: 12,
+              marginBottom: 16
             }}>
-              <View style={{
-                backgroundColor: currentExercise.difficulty === 'easy' ? '#c8e6c9' :
-                               currentExercise.difficulty === 'medium' ? '#fff3e0' : '#ffcdd2',
-                paddingHorizontal: 12,
-                paddingVertical: 4,
-                borderRadius: 12,
-                marginBottom: 16
-              }}>
-                <Text style={{
-                  fontSize: 12,
-                  fontWeight: '600',
-                  color: currentExercise.difficulty === 'easy' ? '#2e7d32' :
-                         currentExercise.difficulty === 'medium' ? '#e65100' : '#c62828'
-                }}>
-                  {currentExercise.difficulty?.toUpperCase()} • {currentExercise.points} XP
-                </Text>
-              </View>
-
               <Text style={{
-                fontSize: 20,
+                fontSize: 12,
                 fontWeight: '600',
-                color: Colors.text,
-                textAlign: 'center',
-                lineHeight: 28
+                color: currentExercise.difficulty === 'easy' ? '#2e7d32' :
+                       currentExercise.difficulty === 'medium' ? '#e65100' : '#c62828'
               }}>
-                {currentExercise.question}
+                {currentExercise.difficulty?.toUpperCase()} • {currentExercise.points} XP
               </Text>
             </View>
+
+            {/* 🖼️ IMAGE SUPPORT - YENİ EKLENEN KISIM */}
+            {currentExercise.category === 'imagebased' && (
+              <View style={{
+                width: '100%',
+                aspectRatio: 4/3,
+                borderRadius: 12,
+                overflow: 'hidden',
+                backgroundColor: '#e3f2fd',
+                marginBottom: 16,
+                position: 'relative'
+              }}>
+                <Image
+                  source={{
+                    uri: currentExercise.image?.url ||
+                         `https://via.placeholder.com/400x300/e3f2fd/1976d2?text=${encodeURIComponent(currentExercise.answer || 'Image')}`
+                  }}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    resizeMode: 'cover'
+                  }}
+                  onError={() => {
+                    console.log('Image failed to load, using placeholder');
+                  }}
+                />
+
+                {/* Image Source Badge */}
+                {currentExercise.image?.source && (
+                  <View style={{
+                    position: 'absolute',
+                    bottom: 8,
+                    right: 8,
+                    backgroundColor: 'rgba(0,0,0,0.6)',
+                    paddingHorizontal: 8,
+                    paddingVertical: 4,
+                    borderRadius: 6
+                  }}>
+                    <Text style={{
+                      color: '#fff',
+                      fontSize: 10,
+                      fontWeight: '500'
+                    }}>
+                      📸 {currentExercise.image.source}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+
+            <Text style={{
+              fontSize: 20,
+              fontWeight: '600',
+              color: Colors.text,
+              textAlign: 'center',
+              lineHeight: 28
+            }}>
+              {currentExercise.question}
+            </Text>
+          </View>
 
             {/* Options */}
             <View style={{
