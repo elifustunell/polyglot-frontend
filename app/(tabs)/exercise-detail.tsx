@@ -156,7 +156,7 @@ export default function ExerciseDetailScreen() {
                 await handleTryAgain();
               }
             }
-            { text: 'Go Back', onPress: () => router.back() },
+            { text: 'Go Back', onPress: () => router.back() }
           ]
         );
       }
@@ -425,7 +425,6 @@ export default function ExerciseDetailScreen() {
         setLoading(false);
       }
     }
-
   };
 
   // New function to reset and retry level
