@@ -836,4 +836,5 @@ export default function ExerciseDetailScreen() {
       </ScrollView>
     </View>
   );
+
 }
