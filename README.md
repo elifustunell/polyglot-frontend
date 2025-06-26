@@ -156,22 +156,4 @@ npm run lint       # Code quality check with ESLint
 4. Push to the branch (`git push origin feature/AmazingFeature`)
 5. Create a Pull Request
 
-## 📄 License
 
-This project is licensed under the [MIT License](LICENSE).
-
-## 📞 Contact
-
-- **Developer**: Emir Efe Ulusoy
-- **Email**: emirulusoy53@gmail.com
-- **Project Link**: [https://github.com/emirefeulusoy/polyglotpal](https://github.com/emirefeulusoy/polyglotpal)
-
-## 🙏 Acknowledgments
-
-- Thanks to the Expo team for the amazing platform
-- Thanks to the React Native community for continuous support
-- Thanks to all contributors
-
----
-
-⭐ If you like this project, don't forget to give it a star!
