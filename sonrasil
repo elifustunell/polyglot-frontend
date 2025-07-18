@@ -1,0 +1,12 @@
+- name: Upload SBOM to Dependency-Track
+  env:
+    DTRACK_API_KEY: ${{ secrets.DTRACK_API_KEY }}
+    DTRACK_API_URL: "http://localhost:8080"
+  run: |
+    curl -X POST "$DTRACK_API_URL/api/v1/bom" \
+      -H "X-Api-Key: $DTRACK_API_KEY" \
+      -H "Content-Type: multipart/form-data" \
+      -F "autoCreate=true" \
+      -F "projectName=polyglot-frontend" \
+      -F "projectVersion=1.0.0" \
+      -F "bom=@bom.json"
