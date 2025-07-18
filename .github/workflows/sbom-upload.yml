@@ -1,5 +1,6 @@
 name: Generate SBOM 
 
+
 on:
   push:
     branches:
