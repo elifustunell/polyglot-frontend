@@ -42,7 +42,7 @@ jobs:
           DTRACK_API_KEY: ${{ secrets.DTRACK_API_KEY }}
           DTRACK_API_URL: "http://localhost:8080"
         run: |
-          curl -X POST "$DTRACK_API_URL/api/v1/bom" \
+          curl -X POST "$DTRACK_API_URL/api/v1/bom?project=8528047c-0ed9-40ed-bc3f-28f1e0a2dcf4" \
             -H "X-Api-Key: $DTRACK_API_KEY" \
             -H "Content-Type: application/json" \
             --data-binary @bom.json
